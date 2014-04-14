@@ -12,6 +12,8 @@
 		0E28B68218EFE2D1008973F8 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 0E28B68018EFE2D1008973F8 /* Credits.rtf */; };
 		0E28B68A18EFE2D1008973F8 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0E28B68918EFE2D1008973F8 /* Images.xcassets */; };
 		0E28B6A618EFE4AA008973F8 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0E28B6A518EFE4AA008973F8 /* SDL2.framework */; };
+		0E41C46518FC491800931AF2 /* test.vert in Resources */ = {isa = PBXBuildFile; fileRef = 0E41C46418FC491800931AF2 /* test.vert */; };
+		0E41C46718FC494600931AF2 /* test.frag in Resources */ = {isa = PBXBuildFile; fileRef = 0E41C46618FC494600931AF2 /* test.frag */; };
 		0EA435A818F01E2800B0D8F8 /* GLUT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EA435A718F01E2800B0D8F8 /* GLUT.framework */; };
 		0EA435AA18F01E6900B0D8F8 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EA435A918F01E6900B0D8F8 /* OpenGL.framework */; };
 		0EA435AE18F0470600B0D8F8 /* test.txt in Resources */ = {isa = PBXBuildFile; fileRef = 0EA435AD18F0470600B0D8F8 /* test.txt */; };
@@ -26,6 +28,8 @@
 		0E28B68118EFE2D1008973F8 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = en; path = en.lproj/Credits.rtf; sourceTree = "<group>"; };
 		0E28B68918EFE2D1008973F8 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		0E28B6A518EFE4AA008973F8 /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = ../../../../Library/Frameworks/SDL2.framework; sourceTree = "<group>"; };
+		0E41C46418FC491800931AF2 /* test.vert */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; name = test.vert; path = "SDL2-904/Resources/test.vert"; sourceTree = "<group>"; };
+		0E41C46618FC494600931AF2 /* test.frag */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; name = test.frag; path = "SDL2-904/Resources/test.frag"; sourceTree = "<group>"; };
 		0EA435A718F01E2800B0D8F8 /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
 		0EA435A918F01E6900B0D8F8 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		0EA435AD18F0470600B0D8F8 /* test.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = test.txt; path = "SDL2-904/Resources/test.txt"; sourceTree = "<group>"; };
@@ -100,6 +104,8 @@
 			isa = PBXGroup;
 			children = (
 				0EA435AD18F0470600B0D8F8 /* test.txt */,
+				0E41C46418FC491800931AF2 /* test.vert */,
+				0E41C46618FC494600931AF2 /* test.frag */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -159,7 +165,9 @@
 				0EA435AE18F0470600B0D8F8 /* test.txt in Resources */,
 				0E28B67C18EFE2D1008973F8 /* InfoPlist.strings in Resources */,
 				0E28B68A18EFE2D1008973F8 /* Images.xcassets in Resources */,
+				0E41C46518FC491800931AF2 /* test.vert in Resources */,
 				0E28B68218EFE2D1008973F8 /* Credits.rtf in Resources */,
+				0E41C46718FC494600931AF2 /* test.frag in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
