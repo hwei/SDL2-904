@@ -80,6 +80,7 @@ class TestShader
     GLuint vertex_shader;
     GLuint fragment_shader;
     GLuint shader_program;
+    GLuint shader_color;
 public:
     TestShader();
     bool Valid() const { return this->b_valid; }
@@ -150,6 +151,8 @@ TestShader::TestShader()
         glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
         glEnableVertexAttribArray(pos_attrib);
         
+        this->shader_color = glGetUniformLocation(this->shader_program, "triangleColor");
+        
         auto error = glGetError();
         if (error != GL_NO_ERROR)
         {
@@ -165,6 +168,7 @@ void TestShader::Render() const
     GLenum error;
     glUseProgram(this->shader_program);
     glBindVertexArray(this->vao);
+    glUniform3f(this->shader_color, 1.0f, 0.0f, 0.0f);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     error = glGetError();
     if (error != GL_NO_ERROR)
