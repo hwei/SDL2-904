@@ -1,7 +1,6 @@
 #include <SDL2/SDL.h>
-#define GL3_PROTOTYPES 1
-#include <OpenGL/gl3.h>
-//#include <SDL2/SDL_opengl.h>
+#define GL_GLEXT_PROTOTYPES
+#include <SDL2/SDL_opengl.h>
 //#include <OpenGL/glu.h>
 #include <CoreFoundation/CFBundle.h>
 #include <iostream>
@@ -77,6 +76,7 @@ class TestShader
     bool b_valid;
     GLuint vao;
     GLuint vbo;
+    GLuint ebo;
     GLuint vertex_shader;
     GLuint fragment_shader;
     GLuint shader_program;
@@ -90,20 +90,26 @@ public:
 TestShader::TestShader()
 : b_valid(false)
 {
-    static float vertices[] = {
+    static GLfloat vertices[] = {
         0.0f,  0.5f, // Vertex 1 (X, Y)
         0.5f, -0.5f, // Vertex 2 (X, Y)
         -0.5f, -0.5f  // Vertex 3 (X, Y)
     };
     
+    static GLuint elements[] = {
+        0, 1, 2
+    };
+    
     do
     {
-        glGenVertexArrays(1, &this->vao);
-        glBindVertexArray(this->vao);
-        
-        glGenBuffers(1, &this->vbo);
+        GLuint buffer_ids[2];
+        glGenBuffers(2, buffer_ids);
+        this->vbo = buffer_ids[0];
         glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        this->ebo = buffer_ids[1];
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
         
         int r;
 
@@ -147,6 +153,8 @@ TestShader::TestShader()
         
         glLinkProgram(this->shader_program);
         
+        glGenVertexArrays(1, &this->vao);
+        glBindVertexArray(this->vao);
         GLint pos_attrib = glGetAttribLocation(this->shader_program, "position");
         glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
         glEnableVertexAttribArray(pos_attrib);
@@ -167,17 +175,17 @@ void TestShader::Render() const
 {
     GLenum error;
     glUseProgram(this->shader_program);
-    glBindVertexArray(this->vao);
     glUniform3f(this->shader_color, 1.0f, 0.0f, 0.0f);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(this->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
+    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
     error = glGetError();
     if (error != GL_NO_ERROR)
     {
         std::cerr << "OpenGL error: " << error << std::endl;
     }
 }
-
-
 
 bool loop(TestShader* p_shader)
 {
