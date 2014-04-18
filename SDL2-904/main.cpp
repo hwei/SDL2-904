@@ -77,31 +77,53 @@ class TestShader
     GLuint vao;
     GLuint vbo;
     GLuint ebo;
+    GLuint tex;
     GLuint vertex_shader;
     GLuint fragment_shader;
     GLuint shader_program;
     GLuint shader_color;
+    GLuint shader_sampler;
 public:
     TestShader();
     bool Valid() const { return this->b_valid; }
     void Render() const;
 };
 
+
 TestShader::TestShader()
 : b_valid(false)
 {
     static GLfloat vertices[] = {
-        0.0f,  0.5f, // Vertex 1 (X, Y)
-        0.5f, -0.5f, // Vertex 2 (X, Y)
-        -0.5f, -0.5f  // Vertex 3 (X, Y)
+        -0.5f, 0.5f, 0.0f, 0.0f,
+        0.5f, 0.5f, 1.0f, 0.0f,
+        0.5f, -0.5f, 1.0f, 1.0f,
+        -0.5f, -0.5f, 0.0f, 1.0f,
     };
     
-    static GLuint elements[] = {
-        0, 1, 2
+    static GLubyte elements[] = {
+        0, 1, 2,
+        2, 3, 0,
+    };
+    
+    static GLfloat pixels[] =
+    {
+        0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+        0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
     };
     
     do
     {
+        GLenum error;
+        
+        glGenTextures(1, &this->tex);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 2, 2, 0, GL_RGB, GL_FLOAT, pixels);
+        
         GLuint buffer_ids[2];
         glGenBuffers(2, buffer_ids);
         this->vbo = buffer_ids[0];
@@ -153,21 +175,28 @@ TestShader::TestShader()
         
         glLinkProgram(this->shader_program);
         
+        GLsizei stride = 4 * sizeof(GLfloat);
         glGenVertexArrays(1, &this->vao);
         glBindVertexArray(this->vao);
         GLint pos_attrib = glGetAttribLocation(this->shader_program, "position");
-        glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
         glEnableVertexAttribArray(pos_attrib);
+        glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, stride, nullptr);
+        GLint tex_attrib = glGetAttribLocation(this->shader_program, "texcoord");
+        glEnableVertexAttribArray(tex_attrib);
+        glVertexAttribPointer(tex_attrib, 2, GL_FLOAT, GL_FALSE, stride, (GLvoid*)(2 * sizeof(GLfloat)));
         
-        this->shader_color = glGetUniformLocation(this->shader_program, "triangleColor");
-        
-        auto error = glGetError();
+        this->shader_color = glGetUniformLocation(this->shader_program, "Color");
+        this->shader_sampler = glGetUniformLocation(this->shader_program, "TexSampler");
+
+        error = glGetError();
         if (error != GL_NO_ERROR)
         {
             std::cerr << "OpenGL error: " << error << std::endl;
         }
-        
-        this->b_valid = true;
+        else
+        {
+            this->b_valid = true;
+        }
     } while (false);
 }
 
@@ -175,11 +204,12 @@ void TestShader::Render() const
 {
     GLenum error;
     glUseProgram(this->shader_program);
-    glUniform3f(this->shader_color, 1.0f, 0.0f, 0.0f);
+    glUniform3f(this->shader_color, 1.0f, 1.0f, 1.0f);
+    glUniform1i(this->shader_sampler, 0);
     glBindVertexArray(this->vao);
     glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
-    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
     error = glGetError();
     if (error != GL_NO_ERROR)
     {
