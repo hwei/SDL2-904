@@ -2,6 +2,7 @@
 #define GL_GLEXT_PROTOTYPES
 #include <SDL2/SDL_opengl.h>
 //#include <OpenGL/glu.h>
+#include "webp/decode.h"
 #include <CoreFoundation/CFBundle.h>
 #include <iostream>
 #include <fstream>
@@ -105,15 +106,26 @@ TestShader::TestShader()
         2, 3, 0,
     };
     
-    static GLfloat pixels[] =
-    {
-        0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-        0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
-    };
-    
     do
     {
+        int r;
         GLenum error;
+        
+        r = load_resource("test_tex.webp", nullptr, 0);
+        assert(r > 0);
+        int test_img_size = r;
+        std::vector<uint8_t> test_img_data(test_img_size);
+        r = load_resource("test_tex.webp", &test_img_data[0], test_img_size);
+        assert(r == test_img_size);
+        int tex_width, tex_height;
+        r = WebPGetInfo(&test_img_data[0], test_img_size, &tex_width, &tex_height);
+        assert(r);
+        int tex_stride = tex_width * 4 * sizeof(uint8_t);
+        int tex_size = tex_stride * tex_height;
+        std::vector<uint8_t> tex_data(tex_size);
+        uint8_t* decode_result = WebPDecodeRGBAInto(
+            &test_img_data[0], test_img_size, &tex_data[0], tex_size, tex_stride);
+        assert(decode_result != nullptr);
         
         glGenTextures(1, &this->tex);
         glActiveTexture(GL_TEXTURE0);
@@ -122,7 +134,7 @@ TestShader::TestShader()
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 2, 2, 0, GL_RGB, GL_FLOAT, pixels);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, decode_result);
         
         GLuint buffer_ids[2];
         glGenBuffers(2, buffer_ids);
@@ -132,15 +144,13 @@ TestShader::TestShader()
         this->ebo = buffer_ids[1];
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
-        
-        int r;
 
         this->vertex_shader = glCreateShader(GL_VERTEX_SHADER);
         r = load_resource("test.vert", nullptr, 0);
         assert(r > 0);
         int vertex_shader_size = r;
-        std::vector<char> vertex_shader_data(512);
-        r = load_resource("test.vert", &vertex_shader_data[0], 512);
+        std::vector<char> vertex_shader_data(vertex_shader_size);
+        r = load_resource("test.vert", &vertex_shader_data[0], vertex_shader_size);
         assert(r == vertex_shader_size);
         const GLchar* vertex_shader_list[1];
         vertex_shader_list[0] = &vertex_shader_data[0];
@@ -203,6 +213,10 @@ TestShader::TestShader()
 void TestShader::Render() const
 {
     GLenum error;
+    glClearColor(0.2f, 0.0f, 0.2f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
     glUseProgram(this->shader_program);
     glUniform3f(this->shader_color, 1.0f, 1.0f, 1.0f);
     glUniform1i(this->shader_sampler, 0);

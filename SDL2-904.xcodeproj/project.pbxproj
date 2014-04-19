@@ -14,6 +14,8 @@
 		0E28B6A618EFE4AA008973F8 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0E28B6A518EFE4AA008973F8 /* SDL2.framework */; };
 		0E41C46518FC491800931AF2 /* test.vert in Resources */ = {isa = PBXBuildFile; fileRef = 0E41C46418FC491800931AF2 /* test.vert */; };
 		0E41C46718FC494600931AF2 /* test.frag in Resources */ = {isa = PBXBuildFile; fileRef = 0E41C46618FC494600931AF2 /* test.frag */; };
+		0E6E315619023305000C0449 /* libwebp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0E6E315519023305000C0449 /* libwebp.a */; };
+		0E6E315819023C2D000C0449 /* test_tex.webp in Resources */ = {isa = PBXBuildFile; fileRef = 0E6E315719023C2D000C0449 /* test_tex.webp */; };
 		0EA435A818F01E2800B0D8F8 /* GLUT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EA435A718F01E2800B0D8F8 /* GLUT.framework */; };
 		0EA435AA18F01E6900B0D8F8 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EA435A918F01E6900B0D8F8 /* OpenGL.framework */; };
 		0EA435AE18F0470600B0D8F8 /* test.txt in Resources */ = {isa = PBXBuildFile; fileRef = 0EA435AD18F0470600B0D8F8 /* test.txt */; };
@@ -30,6 +32,8 @@
 		0E28B6A518EFE4AA008973F8 /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = ../../../../Library/Frameworks/SDL2.framework; sourceTree = "<group>"; };
 		0E41C46418FC491800931AF2 /* test.vert */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; name = test.vert; path = "SDL2-904/Resources/test.vert"; sourceTree = "<group>"; };
 		0E41C46618FC494600931AF2 /* test.frag */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; name = test.frag; path = "SDL2-904/Resources/test.frag"; sourceTree = "<group>"; };
+		0E6E315519023305000C0449 /* libwebp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libwebp.a; path = ../../../../opt/local/lib/libwebp.a; sourceTree = "<group>"; };
+		0E6E315719023C2D000C0449 /* test_tex.webp */ = {isa = PBXFileReference; lastKnownFileType = file; name = test_tex.webp; path = "SDL2-904/Resources/test_tex.webp"; sourceTree = "<group>"; };
 		0EA435A718F01E2800B0D8F8 /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
 		0EA435A918F01E6900B0D8F8 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		0EA435AD18F0470600B0D8F8 /* test.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = test.txt; path = "SDL2-904/Resources/test.txt"; sourceTree = "<group>"; };
@@ -41,6 +45,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0E6E315619023305000C0449 /* libwebp.a in Frameworks */,
 				0EA435B218F04BDC00B0D8F8 /* CoreFoundation.framework in Frameworks */,
 				0EA435AA18F01E6900B0D8F8 /* OpenGL.framework in Frameworks */,
 				0EA435A818F01E2800B0D8F8 /* GLUT.framework in Frameworks */,
@@ -72,6 +77,7 @@
 		0E28B67018EFE2D1008973F8 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				0E6E315519023305000C0449 /* libwebp.a */,
 				0EA435B118F04BDC00B0D8F8 /* CoreFoundation.framework */,
 				0EA435A918F01E6900B0D8F8 /* OpenGL.framework */,
 				0EA435A718F01E2800B0D8F8 /* GLUT.framework */,
@@ -103,6 +109,7 @@
 		0EA435AC18F0463600B0D8F8 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				0E6E315719023C2D000C0449 /* test_tex.webp */,
 				0EA435AD18F0470600B0D8F8 /* test.txt */,
 				0E41C46418FC491800931AF2 /* test.vert */,
 				0E41C46618FC494600931AF2 /* test.frag */,
@@ -168,6 +175,7 @@
 				0E41C46518FC491800931AF2 /* test.vert in Resources */,
 				0E28B68218EFE2D1008973F8 /* Credits.rtf in Resources */,
 				0E41C46718FC494600931AF2 /* test.frag in Resources */,
+				0E6E315819023C2D000C0449 /* test_tex.webp in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -286,7 +294,9 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "SDL2-904/SDL2-904-Info.plist";
+				LIBRARY_SEARCH_PATHS = /opt/local/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = /opt/local/include;
 				WRAPPER_EXTENSION = app;
 			};
 			name = Debug;
@@ -303,7 +313,9 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "SDL2-904/SDL2-904-Info.plist";
+				LIBRARY_SEARCH_PATHS = /opt/local/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = /opt/local/include;
 				WRAPPER_EXTENSION = app;
 			};
 			name = Release;
