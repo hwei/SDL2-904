@@ -180,7 +180,7 @@ public:
     const static size_t MAX_SURFACE_COUNT = 1024;
     TestShader();
     bool Valid() const { return this->b_valid; }
-    void Render(const SurfaceVertex *p_vertex_data, size_t count) const;
+    void Render(const SurfaceVertex *p_vertex_data, size_t surface_count) const;
 };
 
 TestShader::TestShader()
@@ -319,7 +319,7 @@ TestShader::TestShader()
 
 }
 
-void TestShader::Render(const SurfaceVertex *p_vertex_data, size_t count) const
+void TestShader::Render(const SurfaceVertex *p_vertex_data, size_t surface_count) const
 {
     GLenum error;
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -334,9 +334,9 @@ void TestShader::Render(const SurfaceVertex *p_vertex_data, size_t count) const
     glUniform1i(this->shader_sampler, 0);
     glBindVertexArray(this->vao);
     glBufferData(GL_ARRAY_BUFFER, sizeof(SurfaceVertex) * 4 * MAX_SURFACE_COUNT, nullptr, GL_STREAM_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(SurfaceVertex) * count, p_vertex_data);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(SurfaceVertex) * surface_count * 4, p_vertex_data);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
-    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(6 * count), GL_UNSIGNED_SHORT, nullptr);
+    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(6 * surface_count), GL_UNSIGNED_SHORT, nullptr);
     error = glGetError();
     if (error != GL_NO_ERROR)
     {
@@ -402,7 +402,7 @@ int main(int argc, char* args[])
             }speed;
         };
         
-        const int obj_size = 128;
+        const int obj_size = 32;
         const int obj_half_size = obj_size / 2;
         const size_t obj_count = TestShader::MAX_SURFACE_COUNT;
         Obj obj_array[obj_count];
