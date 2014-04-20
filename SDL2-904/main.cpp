@@ -11,6 +11,7 @@
 #include <cassert>
 #include <cstddef>
 #include <limits>
+#include <random>
 
 static const int SCREEN_WIDTH = 640;
 static const int SCREEN_HEIGHT = 480;
@@ -145,27 +146,6 @@ struct OpGlProgram
     void del(GLuint h) { glDeleteShader(h); }
 };
 
-
-class TestShader
-{
-    bool b_valid;
-    GLuint vao;
-    GLuint vbo;
-    GLuint ebo;
-    GLuint tex;
-    GLuint shader_color;
-    GLuint shader_sampler;
-    GLuint shader_screen_trans;
-    GlHandles<OpGlVertexArrays> h_vertex_arrays;
-    GlHandles<OpGlBuffers> h_buffers;
-    GlHandles<OpGlTextures> h_textures;
-    GlHandle<OpGlProgram> h_program;
-public:
-    TestShader();
-    bool Valid() const { return this->b_valid; }
-    void Render() const;
-};
-
 struct SurfaceVertex
 {
     struct
@@ -182,6 +162,26 @@ struct SurfaceVertex
     GLbyte light;
 };
 
+class TestShader
+{
+    bool b_valid;
+    GLuint vao;
+    GLuint vbo;
+    GLuint ebo;
+    GLuint tex;
+    GLuint shader_color;
+    GLuint shader_sampler;
+    GLuint shader_screen_trans;
+    GlHandles<OpGlVertexArrays> h_vertex_arrays;
+    GlHandles<OpGlBuffers> h_buffers;
+    GlHandles<OpGlTextures> h_textures;
+    GlHandle<OpGlProgram> h_program;
+public:
+    const static size_t MAX_SURFACE_COUNT = 1024;
+    TestShader();
+    bool Valid() const { return this->b_valid; }
+    void Render(const SurfaceVertex *p_vertex_data, size_t count) const;
+};
 
 TestShader::TestShader()
     : b_valid(false)
@@ -189,15 +189,7 @@ TestShader::TestShader()
     , h_buffers(2)
     , h_textures(1)
 {
-    static SurfaceVertex vertex_data[] =
-    {
-        { 0, 0,                        0, 0,     255, 0 },
-        { SCREEN_WIDTH, 0,             128, 0,   255, 0 },
-        { SCREEN_WIDTH, SCREEN_HEIGHT, 128, 128, 255, 0 },
-        { 0, SCREEN_HEIGHT,            0, 128,   255, 0 },
-    };
-    
-    static GLubyte elements[] = {
+    static GLushort elements[] = {
         0, 1, 2,
         2, 3, 0,
     };
@@ -279,10 +271,22 @@ TestShader::TestShader()
         
         this->vbo = this->h_buffers.get(0);
         glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(SurfaceVertex) * 4 * MAX_SURFACE_COUNT, nullptr, GL_STREAM_DRAW);
         this->ebo = this->h_buffers.get(1);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
+        std::vector<GLushort> index_data(MAX_SURFACE_COUNT * 6);
+        GLushort* p_index_data = &index_data[0];
+        for (int i = 0; i < MAX_SURFACE_COUNT; ++i) {
+            GLushort *p = p_index_data + i * 6;
+            GLushort base = i * 4;
+            p[0] = elements[0] + base;
+            p[1] = elements[1] + base;
+            p[2] = elements[2] + base;
+            p[3] = elements[3] + base;
+            p[4] = elements[4] + base;
+            p[5] = elements[5] + base;
+        }
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort) * MAX_SURFACE_COUNT * 6, p_index_data, GL_STATIC_DRAW);
         
         this->vao = this->h_vertex_arrays.get(0);
         glBindVertexArray(this->vao);
@@ -315,11 +319,9 @@ TestShader::TestShader()
 
 }
 
-void TestShader::Render() const
+void TestShader::Render(const SurfaceVertex *p_vertex_data, size_t count) const
 {
     GLenum error;
-    glClearColor(0.2f, 0.0f, 0.2f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     glUseProgram(this->h_program);
@@ -331,8 +333,10 @@ void TestShader::Render() const
     glUniform3f(this->shader_color, 1.0f, 1.0f, 1.0f);
     glUniform1i(this->shader_sampler, 0);
     glBindVertexArray(this->vao);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(SurfaceVertex) * 4 * MAX_SURFACE_COUNT, nullptr, GL_STREAM_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(SurfaceVertex) * count, p_vertex_data);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
+    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(6 * count), GL_UNSIGNED_SHORT, nullptr);
     error = glGetError();
     if (error != GL_NO_ERROR)
     {
@@ -384,6 +388,33 @@ int main(int argc, char* args[])
         TestShader test_shader;
         assert(test_shader.Valid());
         
+        struct Obj
+        {
+            struct
+            {
+                float x;
+                float y;
+            }pos;
+            struct
+            {
+                float x;
+                float y;
+            }speed;
+        };
+        
+        const int obj_size = 128;
+        const int obj_half_size = obj_size / 2;
+        const size_t obj_count = TestShader::MAX_SURFACE_COUNT;
+        Obj obj_array[obj_count];
+        for (Obj& obj : obj_array) {
+            obj.pos.x = static_cast<float>(std::rand() % SCREEN_WIDTH) - obj_half_size;
+            obj.pos.y = static_cast<float>(std::rand() % SCREEN_HEIGHT) - obj_half_size;
+            obj.speed.x = (float)std::rand() / (float)RAND_MAX;
+            obj.speed.y = (float)std::rand() / (float)RAND_MAX;
+        }
+        
+        SurfaceVertex vertex_data[obj_count * 4];
+        
         typedef decltype(SDL_GetTicks()) tick_t;
         tick_t last_fps_tick = SDL_GetTicks();
         tick_t last_fps_frame = 0;
@@ -405,11 +436,49 @@ int main(int argc, char* args[])
                 break;
             }
             
+            for (Obj& obj : obj_array) {
+                obj.pos.x += obj.speed.x;
+                obj.pos.y += obj.speed.y;
+                if (obj.pos.x > SCREEN_WIDTH - obj_half_size) obj.pos.x = -obj_half_size;
+                if (obj.pos.y > SCREEN_HEIGHT - obj_half_size) obj.pos.y = -obj_half_size;
+            }
+            
+            for (int i = 0; i < obj_count; ++i) {
+                SurfaceVertex* p_vertex = vertex_data + i * 4;
+                Obj* p_obj = obj_array + i;
+                p_vertex[0].pos.x = static_cast<GLushort>(p_obj->pos.x);
+                p_vertex[0].pos.y = static_cast<GLushort>(p_obj->pos.y);
+                p_vertex[0].tex.u = 0;
+                p_vertex[0].tex.v = 0;
+                p_vertex[0].alpha = 255;
+                p_vertex[0].light = 0;
+                p_vertex[1].pos.x = static_cast<GLushort>(p_obj->pos.x + obj_size);
+                p_vertex[1].pos.y = static_cast<GLushort>(p_obj->pos.y);
+                p_vertex[1].tex.u = 128;
+                p_vertex[1].tex.v = 0;
+                p_vertex[1].alpha = 255;
+                p_vertex[1].light = 0;
+                p_vertex[2].pos.x = static_cast<GLushort>(p_obj->pos.x + obj_size);
+                p_vertex[2].pos.y = static_cast<GLushort>(p_obj->pos.y + obj_size);
+                p_vertex[2].tex.u = 128;
+                p_vertex[2].tex.v = 128;
+                p_vertex[2].alpha = 255;
+                p_vertex[2].light = 0;
+                p_vertex[3].pos.x = static_cast<GLushort>(p_obj->pos.x);
+                p_vertex[3].pos.y = static_cast<GLushort>(p_obj->pos.y + obj_size);
+                p_vertex[3].tex.u = 0;
+                p_vertex[3].tex.v = 128;
+                p_vertex[3].alpha = 255;
+                p_vertex[3].light = 0;
+            }
+            
+            glClearColor(0.2f, 0.0f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
-            test_shader.Render();
+            test_shader.Render(vertex_data, obj_count);
             glFlush();
             
             SDL_GL_SwapWindow(p_window);
+            
             tick_t tick_5 = tick_time_queue.Head();
             tick_t len_5_x = SDL_GetTicks() - tick_5;
             if (len_5_x < 90)
