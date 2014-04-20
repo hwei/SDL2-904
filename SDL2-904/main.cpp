@@ -84,8 +84,6 @@ class TestShader
     GLuint vbo;
     GLuint ebo;
     GLuint tex;
-    GLuint vertex_shader;
-    GLuint fragment_shader;
     GLuint shader_program;
     GLuint shader_color;
     GLuint shader_sampler;
@@ -159,7 +157,7 @@ TestShader::TestShader()
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, decode_result);
 
-        this->vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+        GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
         r = load_resource("test.vert", nullptr, 0);
         assert(r > 0);
         int vertex_shader_size = r;
@@ -168,18 +166,18 @@ TestShader::TestShader()
         assert(r == vertex_shader_size);
         const GLchar* vertex_shader_list[1];
         vertex_shader_list[0] = &vertex_shader_data[0];
-        glShaderSource(this->vertex_shader, 1, vertex_shader_list, &vertex_shader_size);
-        glCompileShader(this->vertex_shader);
-        glGetShaderiv(this->vertex_shader, GL_COMPILE_STATUS, &r);
+        glShaderSource(vertex_shader, 1, vertex_shader_list, &vertex_shader_size);
+        glCompileShader(vertex_shader);
+        glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &r);
         if (r != GL_TRUE)
         {
             char buffer[512];
-            glGetShaderInfoLog(this->vertex_shader, 512, NULL, buffer);
+            glGetShaderInfoLog(vertex_shader, 512, NULL, buffer);
             std::cerr << buffer << std::endl;
             break;
         }
         
-        this->fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+        GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
         r = load_resource("test.frag", nullptr, 0);
         assert(r > 0);
         int fragment_shader_size = r;
@@ -188,16 +186,18 @@ TestShader::TestShader()
         assert(r == fragment_shader_size);
         const GLchar* fragment_shader_list[1];
         fragment_shader_list[0] = &fragment_shader_data[0];
-        glShaderSource(this->fragment_shader, 1, fragment_shader_list, &fragment_shader_size);
-        glCompileShader(this->fragment_shader);
-        glGetShaderiv(this->fragment_shader, GL_COMPILE_STATUS, &r);
+        glShaderSource(fragment_shader, 1, fragment_shader_list, &fragment_shader_size);
+        glCompileShader(fragment_shader);
+        glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &r);
         assert(r == GL_TRUE);
         
         this->shader_program = glCreateProgram();
-        glAttachShader(this->shader_program, this->vertex_shader);
-        glAttachShader(this->shader_program, this->fragment_shader);
+        glAttachShader(this->shader_program, vertex_shader);
+        glAttachShader(this->shader_program, fragment_shader);
         
         glLinkProgram(this->shader_program);
+        glDeleteShader(vertex_shader);
+        glDeleteShader(fragment_shader);
         
         GLuint buffer_ids[2];
         glGenBuffers(2, buffer_ids);
@@ -258,31 +258,6 @@ void TestShader::Render() const
     }
 }
 
-bool loop(TestShader* p_shader)
-{
-    SDL_Event e;
-    while (SDL_PollEvent(&e) != 0)
-    {
-        if (e.type == SDL_QUIT)
-            return false;
-    }
-
-    static float x = 0;
-    x += 0.01;
-    if (x >= 1)
-    {
-        x = -1;
-    }
-    glClear(GL_COLOR_BUFFER_BIT);
-    p_shader->Render();
-    auto error = glGetError();
-    if (error != GL_NO_ERROR)
-    {
-        std::cerr << "OpenGL error: " << error << std::endl;
-    }
-    return true;
-}
-
 int main(int argc, char* args[])
 {
     
@@ -331,8 +306,27 @@ int main(int argc, char* args[])
     tick_t last_fps_tick = SDL_GetTicks();
     tick_t last_fps_frame = 0;
     DelayQueue<unsigned int, 6> tick_time_queue;
-    while (loop(&test_shader))
+    while (true)
     {
+        SDL_Event e;
+        bool b_quit = false;
+        while (SDL_PollEvent(&e) != 0)
+        {
+            if (e.type == SDL_QUIT)
+            {
+                b_quit = true;
+                break;
+            }
+        }
+        if (b_quit)
+        {
+            break;
+        }
+
+        glClear(GL_COLOR_BUFFER_BIT);
+        test_shader.Render();
+        glFlush();
+        
         SDL_GL_SwapWindow(p_window);
         tick_t tick_5 = tick_time_queue.Head();
         tick_t len_5_x = SDL_GetTicks() - tick_5;
