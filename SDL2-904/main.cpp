@@ -184,10 +184,10 @@ struct SurfaceVertex
 
 
 TestShader::TestShader()
-: b_valid(false)
-, h_vertex_arrays(1)
-, h_buffers(2)
-, h_textures(1)
+    : b_valid(false)
+    , h_vertex_arrays(1)
+    , h_buffers(2)
+    , h_textures(1)
 {
     static SurfaceVertex vertex_data[] =
     {
@@ -202,11 +202,11 @@ TestShader::TestShader()
         2, 3, 0,
     };
     
+    int r;
+    GLenum error;
+    
     do
     {
-        int r;
-        GLenum error;
-        
         r = load_resource("test_tex.webp", nullptr, 0);
         assert(r > 0);
         int test_img_size = r;
@@ -232,7 +232,7 @@ TestShader::TestShader()
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, decode_result);
 
-        GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+        GlHandle<OpGlShader> h_vertex_shader(GL_VERTEX_SHADER);
         r = load_resource("test.vert", nullptr, 0);
         assert(r > 0);
         int vertex_shader_size = r;
@@ -241,18 +241,18 @@ TestShader::TestShader()
         assert(r == vertex_shader_size);
         const GLchar* vertex_shader_list[1];
         vertex_shader_list[0] = &vertex_shader_data[0];
-        glShaderSource(vertex_shader, 1, vertex_shader_list, &vertex_shader_size);
-        glCompileShader(vertex_shader);
-        glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &r);
+        glShaderSource(h_vertex_shader, 1, vertex_shader_list, &vertex_shader_size);
+        glCompileShader(h_vertex_shader);
+        glGetShaderiv(h_vertex_shader, GL_COMPILE_STATUS, &r);
         if (r != GL_TRUE)
         {
             char buffer[512];
-            glGetShaderInfoLog(vertex_shader, 512, NULL, buffer);
+            glGetShaderInfoLog(h_vertex_shader, 512, NULL, buffer);
             std::cerr << buffer << std::endl;
             break;
         }
-        
-        GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+
+        GlHandle<OpGlShader> h_fragment_shader(GL_FRAGMENT_SHADER);
         r = load_resource("test.frag", nullptr, 0);
         assert(r > 0);
         int fragment_shader_size = r;
@@ -261,17 +261,21 @@ TestShader::TestShader()
         assert(r == fragment_shader_size);
         const GLchar* fragment_shader_list[1];
         fragment_shader_list[0] = &fragment_shader_data[0];
-        glShaderSource(fragment_shader, 1, fragment_shader_list, &fragment_shader_size);
-        glCompileShader(fragment_shader);
-        glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &r);
-        assert(r == GL_TRUE);
+        glShaderSource(h_fragment_shader, 1, fragment_shader_list, &fragment_shader_size);
+        glCompileShader(h_fragment_shader);
+        glGetShaderiv(h_fragment_shader, GL_COMPILE_STATUS, &r);
+        if (r != GL_TRUE)
+        {
+            char buffer[512];
+            glGetShaderInfoLog(h_vertex_shader, 512, NULL, buffer);
+            std::cerr << buffer << std::endl;
+            break;
+        }
         
-        glAttachShader(this->h_program, vertex_shader);
-        glAttachShader(this->h_program, fragment_shader);
+        glAttachShader(this->h_program, h_vertex_shader);
+        glAttachShader(this->h_program, h_fragment_shader);
         
         glLinkProgram(this->h_program);
-        glDeleteShader(vertex_shader);
-        glDeleteShader(fragment_shader);
         
         this->vbo = this->h_buffers.get(0);
         glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
@@ -303,6 +307,12 @@ TestShader::TestShader()
             this->b_valid = true;
         }
     } while (false);
+    error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "OpenGL error: " << error << std::endl;
+    }
+
 }
 
 void TestShader::Render() const
