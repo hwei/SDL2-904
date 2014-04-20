@@ -267,7 +267,7 @@ TestShader::TestShader()
         if (r != GL_TRUE)
         {
             char buffer[512];
-            glGetShaderInfoLog(h_vertex_shader, 512, NULL, buffer);
+            glGetShaderInfoLog(h_fragment_shader, 512, NULL, buffer);
             std::cerr << buffer << std::endl;
             break;
         }
