@@ -9,6 +9,11 @@
 #include <vector>
 #include <memory>
 #include <cassert>
+#include <cstddef>
+#include <limits>
+
+static const int SCREEN_WIDTH = 640;
+static const int SCREEN_HEIGHT = 480;
 
 
 template <typename T, unsigned int S>
@@ -84,21 +89,39 @@ class TestShader
     GLuint shader_program;
     GLuint shader_color;
     GLuint shader_sampler;
+    GLuint shader_screen_trans;
 public:
     TestShader();
     bool Valid() const { return this->b_valid; }
     void Render() const;
 };
 
+struct SurfaceVertex
+{
+    struct
+    {
+        GLshort x;
+        GLshort y;
+    }pos;
+    struct
+    {
+        GLubyte u;
+        GLubyte v;
+    }tex;
+    GLubyte alpha;
+    GLbyte light;
+};
+
 
 TestShader::TestShader()
 : b_valid(false)
 {
-    static GLfloat vertices[] = {
-        -0.5f, 0.5f, 0.0f, 0.0f,
-        0.5f, 0.5f, 1.0f, 0.0f,
-        0.5f, -0.5f, 1.0f, 1.0f,
-        -0.5f, -0.5f, 0.0f, 1.0f,
+    static SurfaceVertex vertex_data[] =
+    {
+        { 0, 0,                        0, 0,     255, 0 },
+        { SCREEN_WIDTH, 0,             128, 0,   255, 0 },
+        { SCREEN_WIDTH, SCREEN_HEIGHT, 128, 128, 255, 0 },
+        { 0, SCREEN_HEIGHT,            0, 128,   255, 0 },
     };
     
     static GLubyte elements[] = {
@@ -135,15 +158,6 @@ TestShader::TestShader()
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, decode_result);
-        
-        GLuint buffer_ids[2];
-        glGenBuffers(2, buffer_ids);
-        this->vbo = buffer_ids[0];
-        glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-        this->ebo = buffer_ids[1];
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
 
         this->vertex_shader = glCreateShader(GL_VERTEX_SHADER);
         r = load_resource("test.vert", nullptr, 0);
@@ -185,16 +199,25 @@ TestShader::TestShader()
         
         glLinkProgram(this->shader_program);
         
-        GLsizei stride = 4 * sizeof(GLfloat);
+        GLuint buffer_ids[2];
+        glGenBuffers(2, buffer_ids);
+        this->vbo = buffer_ids[0];
+        glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
+        this->ebo = buffer_ids[1];
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
+        
         glGenVertexArrays(1, &this->vao);
         glBindVertexArray(this->vao);
         GLint pos_attrib = glGetAttribLocation(this->shader_program, "position");
         glEnableVertexAttribArray(pos_attrib);
-        glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, stride, nullptr);
+        glVertexAttribPointer(pos_attrib, 2, GL_SHORT, GL_FALSE, sizeof(SurfaceVertex), (void*)offsetof(SurfaceVertex, pos));
         GLint tex_attrib = glGetAttribLocation(this->shader_program, "texcoord");
         glEnableVertexAttribArray(tex_attrib);
-        glVertexAttribPointer(tex_attrib, 2, GL_FLOAT, GL_FALSE, stride, (GLvoid*)(2 * sizeof(GLfloat)));
+        glVertexAttribPointer(tex_attrib, 2, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(SurfaceVertex), (void*)offsetof(SurfaceVertex, tex));
         
+        this->shader_screen_trans = glGetUniformLocation(this->shader_program, "ScreenTransfrom");
         this->shader_color = glGetUniformLocation(this->shader_program, "Color");
         this->shader_sampler = glGetUniformLocation(this->shader_program, "TexSampler");
 
@@ -218,10 +241,14 @@ void TestShader::Render() const
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     glUseProgram(this->shader_program);
+    glUniform4f(
+        this->shader_screen_trans, 2.0f / SCREEN_WIDTH,
+        -2.0f / SCREEN_HEIGHT,
+        -1.0f - 0.5f / SCREEN_WIDTH,
+        1.0f + 0.5f / SCREEN_HEIGHT);
     glUniform3f(this->shader_color, 1.0f, 1.0f, 1.0f);
     glUniform1i(this->shader_sampler, 0);
     glBindVertexArray(this->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
     error = glGetError();
@@ -282,7 +309,7 @@ int main(int argc, char* args[])
     
     auto p_window = SDL_CreateWindow(
         "SDL test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        480, 640, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+        SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (p_window == nullptr)
     {
         std::cerr << "SDL_CreateWindow failed: " << SDL_GetError() << std::endl;
