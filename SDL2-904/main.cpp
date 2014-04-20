@@ -76,6 +76,75 @@ int load_resource(const char* path, void* out_buffer, size_t out_size)
     return static_cast<int>(file_size);
 }
 
+template<typename OP>
+class GlHandles
+{
+    std::vector<GLuint> handles;
+public:
+    GlHandles(int n)
+    : handles(n)
+    {
+        OP op;
+        op.gen(n, &this->handles[0]);
+    }
+    ~GlHandles()
+    {
+        OP op;
+        op.del((GLsizei)this->handles.size(), &this->handles[0]);
+    }
+    GLuint get(int i) const { return this->handles[i]; }
+};
+
+template<typename OP>
+class GlHandle
+{
+    GLuint handle;
+public:
+    template<typename ...Ts>
+    GlHandle(Ts... args)
+    {
+        OP op;
+        this->handle = op.gen(args...);
+    }
+    ~GlHandle()
+    {
+        OP op;
+        op.del(this->handle);
+    }
+    GLuint get() const { return this->handle; }
+    operator GLuint() const { return this->handle; }
+};
+
+struct OpGlBuffers
+{
+    void gen(GLsizei n, GLuint *p) { glGenBuffers(n, p); }
+    void del(GLsizei n, GLuint *p) { glDeleteBuffers(n, p); }
+};
+
+struct OpGlVertexArrays
+{
+    void gen(GLsizei n, GLuint *p) { glGenVertexArrays(n, p); }
+    void del(GLsizei n, GLuint *p) { glDeleteVertexArrays(n, p); }
+};
+
+struct OpGlTextures
+{
+    void gen(GLsizei n, GLuint *p) { glGenTextures(n, p); }
+    void del(GLsizei n, GLuint *p) { glDeleteTextures(n, p); }
+};
+
+struct OpGlShader
+{
+    GLuint gen(GLenum type) { return glCreateShader(type); }
+    void del(GLuint h) { glDeleteShader(h); }
+};
+
+struct OpGlProgram
+{
+    GLuint gen() { return glCreateProgram(); }
+    void del(GLuint h) { glDeleteShader(h); }
+};
+
 
 class TestShader
 {
@@ -84,10 +153,13 @@ class TestShader
     GLuint vbo;
     GLuint ebo;
     GLuint tex;
-    GLuint shader_program;
     GLuint shader_color;
     GLuint shader_sampler;
     GLuint shader_screen_trans;
+    GlHandles<OpGlVertexArrays> h_vertex_arrays;
+    GlHandles<OpGlBuffers> h_buffers;
+    GlHandles<OpGlTextures> h_textures;
+    GlHandle<OpGlProgram> h_program;
 public:
     TestShader();
     bool Valid() const { return this->b_valid; }
@@ -113,6 +185,9 @@ struct SurfaceVertex
 
 TestShader::TestShader()
 : b_valid(false)
+, h_vertex_arrays(1)
+, h_buffers(2)
+, h_textures(1)
 {
     static SurfaceVertex vertex_data[] =
     {
@@ -148,7 +223,7 @@ TestShader::TestShader()
             &test_img_data[0], test_img_size, &tex_data[0], tex_size, tex_stride);
         assert(decode_result != nullptr);
         
-        glGenTextures(1, &this->tex);
+        this->tex = this->h_textures.get(0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, tex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -191,35 +266,32 @@ TestShader::TestShader()
         glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &r);
         assert(r == GL_TRUE);
         
-        this->shader_program = glCreateProgram();
-        glAttachShader(this->shader_program, vertex_shader);
-        glAttachShader(this->shader_program, fragment_shader);
+        glAttachShader(this->h_program, vertex_shader);
+        glAttachShader(this->h_program, fragment_shader);
         
-        glLinkProgram(this->shader_program);
+        glLinkProgram(this->h_program);
         glDeleteShader(vertex_shader);
         glDeleteShader(fragment_shader);
         
-        GLuint buffer_ids[2];
-        glGenBuffers(2, buffer_ids);
-        this->vbo = buffer_ids[0];
+        this->vbo = this->h_buffers.get(0);
         glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
-        this->ebo = buffer_ids[1];
+        this->ebo = this->h_buffers.get(1);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
         
-        glGenVertexArrays(1, &this->vao);
+        this->vao = this->h_vertex_arrays.get(0);
         glBindVertexArray(this->vao);
-        GLint pos_attrib = glGetAttribLocation(this->shader_program, "position");
+        GLint pos_attrib = glGetAttribLocation(this->h_program, "position");
         glEnableVertexAttribArray(pos_attrib);
         glVertexAttribPointer(pos_attrib, 2, GL_SHORT, GL_FALSE, sizeof(SurfaceVertex), (void*)offsetof(SurfaceVertex, pos));
-        GLint tex_attrib = glGetAttribLocation(this->shader_program, "texcoord");
+        GLint tex_attrib = glGetAttribLocation(this->h_program, "texcoord");
         glEnableVertexAttribArray(tex_attrib);
         glVertexAttribPointer(tex_attrib, 2, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(SurfaceVertex), (void*)offsetof(SurfaceVertex, tex));
         
-        this->shader_screen_trans = glGetUniformLocation(this->shader_program, "ScreenTransfrom");
-        this->shader_color = glGetUniformLocation(this->shader_program, "Color");
-        this->shader_sampler = glGetUniformLocation(this->shader_program, "TexSampler");
+        this->shader_screen_trans = glGetUniformLocation(this->h_program, "ScreenTransfrom");
+        this->shader_color = glGetUniformLocation(this->h_program, "Color");
+        this->shader_sampler = glGetUniformLocation(this->h_program, "TexSampler");
 
         error = glGetError();
         if (error != GL_NO_ERROR)
@@ -240,7 +312,7 @@ void TestShader::Render() const
     glClear(GL_COLOR_BUFFER_BIT);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
-    glUseProgram(this->shader_program);
+    glUseProgram(this->h_program);
     glUniform4f(
         this->shader_screen_trans, 2.0f / SCREEN_WIDTH,
         -2.0f / SCREEN_HEIGHT,
@@ -298,53 +370,55 @@ int main(int argc, char* args[])
         return -3;
     }
     
-    
-    TestShader test_shader;
-    assert(test_shader.Valid());
-
-    typedef decltype(SDL_GetTicks()) tick_t;
-    tick_t last_fps_tick = SDL_GetTicks();
-    tick_t last_fps_frame = 0;
-    DelayQueue<unsigned int, 6> tick_time_queue;
-    while (true)
     {
-        SDL_Event e;
-        bool b_quit = false;
-        while (SDL_PollEvent(&e) != 0)
+        TestShader test_shader;
+        assert(test_shader.Valid());
+        
+        typedef decltype(SDL_GetTicks()) tick_t;
+        tick_t last_fps_tick = SDL_GetTicks();
+        tick_t last_fps_frame = 0;
+        DelayQueue<unsigned int, 6> tick_time_queue;
+        while (true)
         {
-            if (e.type == SDL_QUIT)
+            SDL_Event e;
+            bool b_quit = false;
+            while (SDL_PollEvent(&e) != 0)
             {
-                b_quit = true;
+                if (e.type == SDL_QUIT)
+                {
+                    b_quit = true;
+                    break;
+                }
+            }
+            if (b_quit)
+            {
                 break;
             }
-        }
-        if (b_quit)
-        {
-            break;
-        }
-
-        glClear(GL_COLOR_BUFFER_BIT);
-        test_shader.Render();
-        glFlush();
-        
-        SDL_GL_SwapWindow(p_window);
-        tick_t tick_5 = tick_time_queue.Head();
-        tick_t len_5_x = SDL_GetTicks() - tick_5;
-        if (len_5_x < 90)
-        {
-            SDL_Delay(100 - len_5_x);
-        }
-        tick_t now = SDL_GetTicks();
-        tick_time_queue.PushPop(now);
-        ++last_fps_frame;
-        if (last_fps_frame >= 60)
-        {
-            std::cout << "fps: " << 60000.0 / (now - last_fps_tick) << std::endl;
-            last_fps_tick = now;
-            last_fps_frame = 0;
+            
+            glClear(GL_COLOR_BUFFER_BIT);
+            test_shader.Render();
+            glFlush();
+            
+            SDL_GL_SwapWindow(p_window);
+            tick_t tick_5 = tick_time_queue.Head();
+            tick_t len_5_x = SDL_GetTicks() - tick_5;
+            if (len_5_x < 90)
+            {
+                SDL_Delay(100 - len_5_x);
+            }
+            tick_t now = SDL_GetTicks();
+            tick_time_queue.PushPop(now);
+            ++last_fps_frame;
+            if (last_fps_frame >= 60)
+            {
+                std::cout << "fps: " << 60000.0 / (now - last_fps_tick) << std::endl;
+                last_fps_tick = now;
+                last_fps_frame = 0;
+            }
         }
     }
-
+    
+    SDL_GL_DeleteContext(p_context);
     SDL_DestroyWindow(p_window);
     SDL_Quit();
     
