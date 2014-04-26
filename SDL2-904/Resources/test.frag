@@ -1,13 +1,14 @@
 #version 150
 
-uniform vec3 Color;
 uniform sampler2D TexSampler;
 
 in vec2 Texcoord;
+in vec4 ColorMult;
+in vec3 ColorAdd;
 
 out vec4 outColor;
 
 void main()
 {
-    outColor = texture(TexSampler, Texcoord) * vec4(Color, 1.0);
+    outColor = texture(TexSampler, Texcoord) * ColorMult + vec4(ColorAdd, 0.0);
 }
