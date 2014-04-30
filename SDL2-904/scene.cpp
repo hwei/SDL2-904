@@ -119,7 +119,10 @@ namespace hardrock
                 tile_idx = this->tile_list_pool.Prev(tile_idx);
                 if (tile_idx == tile_list_head)
                     break;
-                p_tile_render->AddTile(this->tile_data[tile_idx]);
+                Tile tile = this->tile_data[tile_idx];
+                tile.translate.x += p_layer->layer.pos.x;
+                tile.translate.y += p_layer->layer.pos.y;
+                p_tile_render->AddTile(tile);
             }
         }
 

@@ -5,6 +5,8 @@
 #include <iostream>
 #include "renderer.h"
 #include "scene.h"
+#include "glm/gtx/fast_trigonometry.hpp"
+#include "glm/gtc/constants.hpp"
 
 static const int SCREEN_WIDTH = 640;
 static const int SCREEN_HEIGHT = 480;
@@ -32,6 +34,64 @@ public:
         return r;
     }
 };
+
+namespace hardrock
+{
+    class SpriteModel
+    {
+        const glm::vec2 size;
+        const glm::u8vec4 tex;
+        const glm::vec2 anchor;
+    public:
+        SpriteModel(const glm::vec2& size, const glm::u8vec4 & tex, const glm::vec2& anchor)
+        : size(size)
+        , tex(tex)
+        , anchor(anchor)
+        {
+        }
+        void SetTile(const glm::vec2& pos, const glm::vec2& scale, const glm::vec2& norm_dir, Tile* p_out_tile)
+        {
+            const glm::vec2 size = this->size * scale;
+            const glm::mat2 transform(norm_dir.x * size.x, norm_dir.y * size.x, -norm_dir.y * size.y, norm_dir.x * size.y);
+            p_out_tile->transform = transform;
+            p_out_tile->translate = transform * (-this->anchor) + pos;
+            p_out_tile->tex = this->tex;
+            p_out_tile->color = { 240, 240, 240, 255 };
+        }
+    };
+    
+    void FastSinCos(float r, float* p_out_sin, float* p_out_cos)
+    {
+        static const float half_pi = glm::half_pi<float>();
+        static const float pi = glm::pi<float>();
+        static const float one_half_pi = pi + half_pi;
+        static const float double_pi = pi + pi;
+        r = glm::mod(r, double_pi);
+        if (r < half_pi)
+        {
+            *p_out_sin = glm::fastSin(r);
+            *p_out_cos = glm::fastCos(r);
+        }
+        else if (r < pi)
+        {
+            r = pi - r;
+            *p_out_sin = glm::fastSin(r);
+            *p_out_cos = -glm::fastCos(r);
+        }
+        else if (r < one_half_pi)
+        {
+            r = r - pi;
+            *p_out_sin = -glm::fastSin(r);
+            *p_out_cos = -glm::fastCos(r);
+        }
+        else
+        {
+            r = double_pi - r;
+            *p_out_sin = -glm::fastSin(r);
+            *p_out_cos = glm::fastCos(r);
+        }
+    }
+}
 
 int main(int argc, char* args[])
 {
@@ -65,19 +125,27 @@ int main(int argc, char* args[])
     {
         hardrock::Renderer renderer(SCREEN_WIDTH, SCREEN_HEIGHT);
         assert(renderer.Valid());
+        hardrock::SpriteModel sprite_modle({128, 128}, {0, 0, 128, 128}, {0.5, 0.5});
+        
         hardrock::Scene scene;
         auto layer_idx = scene.LayerAdd();
         scene.LayerAt(layer_idx) = {{0, 0, 0}};
+        const float pi = glm::pi<float>();
+        const float double_pi = pi * 2.0f;
+        const float half_pi = glm::half_pi<float>();
+        struct SpriteData
+        {
+            glm::vec2 pos;
+            float radius;
+            hardrock::Scene::IndexType tile_idx;
+            hardrock::Scene::IndexType padding;
+        } sprite_data[64];
         for (int i = 0; i < 64; ++i)
         {
             auto tile_idx = scene.TileAdd(layer_idx);
-            scene.TileAt(tile_idx) =
-            {
-                glm::mat2(128, 0, 0, 128),
-                glm::vec2(i * 2, i * 2),
-                glm::u8vec4(0, 0, 128, 128),
-                glm::u8vec4(240, 240, 240, 255),
-            };
+            int x = i % 8;
+            int y = i / 8;
+            sprite_data[i] = { { 32 + x * 64, 32 + y * 64 }, (i % 4) * half_pi, tile_idx, 0 };
         }
         
         typedef decltype(SDL_GetTicks()) tick_t;
@@ -100,6 +168,18 @@ int main(int argc, char* args[])
             {
                 break;
             }
+            
+            for (int i = 0; i < 64; ++i)
+            {
+                SpriteData& s = sprite_data[i];
+                s.radius += 0.01f;
+                if (s.radius > pi)
+                    s.radius -= double_pi;
+                glm::vec2 norm;
+                hardrock::FastSinCos(s.radius, &norm.y, &norm.x);
+                sprite_modle.SetTile(s.pos, {1, 1}, norm, &scene.TileAt(s.tile_idx));
+            }
+            
 
             glClearColor(0.2f, 0.0f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
