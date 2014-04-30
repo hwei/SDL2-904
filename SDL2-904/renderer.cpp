@@ -24,6 +24,10 @@ namespace hardrock
     , h_buffers(2)
     , h_textures(1)
     , vertex_buffer(MAX_TILE_COUNT * 4)
+    , xm(2.0f / screen_width)
+    , ym(-2.0f / screen_height)
+    , xa(-1.0f - 0.5f / screen_width)
+    , ya(1.0f + 0.5f / screen_height)
     {
         static GLushort elements[] = {
             0, 1, 2,
@@ -153,45 +157,49 @@ namespace hardrock
         }
     }
     
-    int Renderer::RenderTiles(size_t count, const Tile* p_tiles)
+    int Renderer::Begin(size_t count)
     {
-        assert(count < MAX_TILE_COUNT);
-        float xm = 2.0f / this->screen_width;
-        float ym = -2.0f / this->screen_height;
-        float xa = -1.0f - 0.5f / this->screen_width;
-        float ya = 1.0f + 0.5f / this->screen_height;
-        TileVertex* p_vertex_buffer = &this->vertex_buffer[0];
-        for (size_t i = 0; i < count; ++i)
-        {
-            TileVertex* pv = p_vertex_buffer + (i << 2);
-            TileVertex* pv0 = pv;
-            TileVertex* pv1 = pv + 1;
-            TileVertex* pv2 = pv + 2;
-            TileVertex* pv3 = pv + 3;
-            const Tile* pt = p_tiles + i;
-            glm::vec2 translate(pt->translate.x * xm + xa, pt->translate.y * ym + ya);
-            glm::u8vec4 tex = pt->tex;
-            glm::u8vec4 color = pt->color;
-            glm::vec2 vec_x(pt->transform[0].x * xm, pt->transform[0].y * ym);
-            glm::vec2 vec_y(pt->transform[1].x * xm, pt->transform[1].y * ym);
-            pv0->pos = translate;
-            pv1->pos = translate + vec_x;
-            pv2->pos = translate + vec_x + vec_y;
-            pv3->pos = translate + vec_y;
-            pv0->tex.x = tex.x;
-            pv1->tex.x = tex.z;
-            pv2->tex.x = tex.z;
-            pv3->tex.x = tex.x;
-            pv0->tex.y = tex.y;
-            pv1->tex.y = tex.y;
-            pv2->tex.y = tex.w;
-            pv3->tex.y = tex.w;
-            pv0->color = color;
-            pv1->color = color;
-            pv2->color = color;
-            pv3->color = color;
-        }
-        
+        if (count > MAX_TILE_COUNT)
+            return -1;
+        this->tile_count = 0;
+        return 0;
+    }
+    
+    int Renderer::AddTile(const Tile& tile)
+    {
+        if (this->tile_count >= MAX_TILE_COUNT - 1)
+            return -1;
+        TileVertex* pv0 = &this->vertex_buffer[this->tile_count * 4];
+        TileVertex* pv1 = pv0 + 1;
+        TileVertex* pv2 = pv0 + 2;
+        TileVertex* pv3 = pv0 + 3;
+        glm::vec2 translate(tile.translate.x * this->xm + this->xa, tile.translate.y * this->ym + this->ya);
+        glm::u8vec4 tex = tile.tex;
+        glm::u8vec4 color = tile.color;
+        glm::vec2 vec_x(tile.transform[0].x * this->xm, tile.transform[0].y * this->ym);
+        glm::vec2 vec_y(tile.transform[1].x * this->xm, tile.transform[1].y * this->ym);
+        pv0->pos = translate;
+        pv1->pos = translate + vec_x;
+        pv2->pos = translate + vec_x + vec_y;
+        pv3->pos = translate + vec_y;
+        pv0->tex.x = tex.x;
+        pv1->tex.x = tex.z;
+        pv2->tex.x = tex.z;
+        pv3->tex.x = tex.x;
+        pv0->tex.y = tex.y;
+        pv1->tex.y = tex.y;
+        pv2->tex.y = tex.w;
+        pv3->tex.y = tex.w;
+        pv0->color = color;
+        pv1->color = color;
+        pv2->color = color;
+        pv3->color = color;
+        ++this->tile_count;
+        return 0;
+    }
+    
+    int Renderer::End()
+    {
         GLenum error;
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_BLEND);
@@ -199,9 +207,9 @@ namespace hardrock
         glUniform1i(this->shader_sampler, 0);
         glBindVertexArray(this->vao);
         glBufferData(GL_ARRAY_BUFFER, sizeof(TileVertex) * 4 * MAX_TILE_COUNT, nullptr, GL_STREAM_DRAW);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(TileVertex) * count * 4, p_vertex_buffer);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(TileVertex) * this->tile_count * 4, &this->vertex_buffer[0]);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(6 * count), GL_UNSIGNED_SHORT, nullptr);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(6 * this->tile_count), GL_UNSIGNED_SHORT, nullptr);
         error = glGetError();
         if (error != GL_NO_ERROR)
         {

@@ -27,8 +27,9 @@ namespace hardrock
     struct ITileRender
     {
         virtual ~ITileRender() { }
-        virtual bool Busy() const = 0;
-        virtual int RenderTiles(size_t count, const Tile* p_tiles) = 0;
+        virtual int Begin(size_t count) = 0;
+        virtual int AddTile(const Tile& tile) = 0;
+        virtual int End() = 0;
     };
 
 }

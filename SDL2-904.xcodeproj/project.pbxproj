@@ -19,6 +19,7 @@
 		0EA2C83A190AA331006DE0EA /* scene.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0EA2C839190AA331006DE0EA /* scene.cpp */; };
 		0EA2C83E190AD13E006DE0EA /* renderer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0EA2C83C190AD13E006DE0EA /* renderer.cpp */; };
 		0EA2C843190AD59D006DE0EA /* resource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0EA2C841190AD59D006DE0EA /* resource.cpp */; };
+		0EA2C846190D1DCF006DE0EA /* structure.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0EA2C844190D1DCF006DE0EA /* structure.cpp */; };
 		0EA435A818F01E2800B0D8F8 /* GLUT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EA435A718F01E2800B0D8F8 /* GLUT.framework */; };
 		0EA435AA18F01E6900B0D8F8 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EA435A918F01E6900B0D8F8 /* OpenGL.framework */; };
 		0EA435AE18F0470600B0D8F8 /* test.txt in Resources */ = {isa = PBXBuildFile; fileRef = 0EA435AD18F0470600B0D8F8 /* test.txt */; };
@@ -45,6 +46,8 @@
 		0EA2C840190AD348006DE0EA /* glhandle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = glhandle.h; path = "SDL2-904/glhandle.h"; sourceTree = "<group>"; };
 		0EA2C841190AD59D006DE0EA /* resource.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = resource.cpp; path = "SDL2-904/resource.cpp"; sourceTree = "<group>"; };
 		0EA2C842190AD59D006DE0EA /* resource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = resource.h; path = "SDL2-904/resource.h"; sourceTree = "<group>"; };
+		0EA2C844190D1DCF006DE0EA /* structure.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = structure.cpp; path = "SDL2-904/structure.cpp"; sourceTree = "<group>"; };
+		0EA2C845190D1DCF006DE0EA /* structure.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = structure.h; path = "SDL2-904/structure.h"; sourceTree = "<group>"; };
 		0EA435A718F01E2800B0D8F8 /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
 		0EA435A918F01E6900B0D8F8 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		0EA435AD18F0470600B0D8F8 /* test.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = test.txt; path = "SDL2-904/Resources/test.txt"; sourceTree = "<group>"; };
@@ -129,6 +132,8 @@
 				0EA2C840190AD348006DE0EA /* glhandle.h */,
 				0EA2C841190AD59D006DE0EA /* resource.cpp */,
 				0EA2C842190AD59D006DE0EA /* resource.h */,
+				0EA2C844190D1DCF006DE0EA /* structure.cpp */,
+				0EA2C845190D1DCF006DE0EA /* structure.h */,
 			);
 			name = src;
 			sourceTree = "<group>";
@@ -214,6 +219,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0EA2C83A190AA331006DE0EA /* scene.cpp in Sources */,
+				0EA2C846190D1DCF006DE0EA /* structure.cpp in Sources */,
 				0EA2C843190AD59D006DE0EA /* resource.cpp in Sources */,
 				0EA2C83E190AD13E006DE0EA /* renderer.cpp in Sources */,
 				0E28B67E18EFE2D1008973F8 /* main.cpp in Sources */,

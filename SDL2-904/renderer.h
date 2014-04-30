@@ -24,8 +24,8 @@ namespace hardrock
 {
     class Renderer : public ITileRender
     {
-        int screen_width;
-        int screen_height;
+        const int screen_width;
+        const int screen_height;
         bool b_valid;
         GLuint vao;
         GLuint vbo;
@@ -44,13 +44,15 @@ namespace hardrock
             glm::u8vec4 color;
         };
         std::vector<TileVertex> vertex_buffer;
+        size_t tile_count;
+        const float xm, ym, xa, ya;
     public:
         const static size_t MAX_TILE_COUNT = 1024;
         Renderer(int screen_width, int screen_height);
         bool Valid() const { return this->b_valid; }
-        // void Render(const SurfaceVertex *p_vertex_data, size_t surface_count) const;
-        bool Busy() const override { return false; }
-        int RenderTiles(size_t count, const Tile* p_tiles) override;
+        int Begin(size_t count) override;
+        int AddTile(const Tile& tile) override;
+        int End() override;
     };
 }
 

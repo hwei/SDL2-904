@@ -66,6 +66,19 @@ int main(int argc, char* args[])
         hardrock::Renderer renderer(SCREEN_WIDTH, SCREEN_HEIGHT);
         assert(renderer.Valid());
         hardrock::Scene scene;
+        auto layer_idx = scene.LayerAdd();
+        scene.LayerAt(layer_idx) = {{0, 0, 0}};
+        for (int i = 0; i < 64; ++i)
+        {
+            auto tile_idx = scene.TileAdd(layer_idx);
+            scene.TileAt(tile_idx) =
+            {
+                glm::mat2(128, 0, 0, 128),
+                glm::vec2(i * 2, i * 2),
+                glm::u8vec4(0, 0, 128, 128),
+                glm::u8vec4(240, 240, 240, 255),
+            };
+        }
         
         typedef decltype(SDL_GetTicks()) tick_t;
         tick_t last_fps_tick = SDL_GetTicks();
@@ -90,7 +103,7 @@ int main(int argc, char* args[])
 
             glClearColor(0.2f, 0.0f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
-            scene.Process(0, &renderer);
+            scene.Render(&renderer);
             glFlush();
             
             SDL_GL_SwapWindow(p_window);
