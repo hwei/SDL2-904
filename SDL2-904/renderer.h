@@ -19,6 +19,8 @@
 #include "glm/vec4.hpp"
 #include "glhandle.h"
 #include "tile.h"
+#include "resource.h"
+
 
 namespace hardrock
 {
@@ -48,7 +50,7 @@ namespace hardrock
         const float xm, ym, xa, ya;
     public:
         const static size_t MAX_TILE_COUNT = 1024;
-        Renderer(int screen_width, int screen_height);
+        Renderer(int screen_width, int screen_height, IResourceManager& resource_manager);
         bool Valid() const { return this->b_valid; }
         int Begin(size_t count) override;
         int AddTile(const Tile& tile) override;

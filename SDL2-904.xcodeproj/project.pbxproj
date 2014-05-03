@@ -12,10 +12,8 @@
 		0E28B68218EFE2D1008973F8 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 0E28B68018EFE2D1008973F8 /* Credits.rtf */; };
 		0E28B68A18EFE2D1008973F8 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0E28B68918EFE2D1008973F8 /* Images.xcassets */; };
 		0E28B6A618EFE4AA008973F8 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0E28B6A518EFE4AA008973F8 /* SDL2.framework */; };
-		0E41C46518FC491800931AF2 /* test.vert in Resources */ = {isa = PBXBuildFile; fileRef = 0E41C46418FC491800931AF2 /* test.vert */; };
-		0E41C46718FC494600931AF2 /* test.frag in Resources */ = {isa = PBXBuildFile; fileRef = 0E41C46618FC494600931AF2 /* test.frag */; };
+		0E43AB621914F15D0067D1E9 /* res.pack in Resources */ = {isa = PBXBuildFile; fileRef = 0E43AB611914F15D0067D1E9 /* res.pack */; };
 		0E6E315619023305000C0449 /* libwebp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0E6E315519023305000C0449 /* libwebp.a */; };
-		0E6E315819023C2D000C0449 /* test_tex.webp in Resources */ = {isa = PBXBuildFile; fileRef = 0E6E315719023C2D000C0449 /* test_tex.webp */; };
 		0EA2C83A190AA331006DE0EA /* scene.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0EA2C839190AA331006DE0EA /* scene.cpp */; };
 		0EA2C83E190AD13E006DE0EA /* renderer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0EA2C83C190AD13E006DE0EA /* renderer.cpp */; };
 		0EA2C843190AD59D006DE0EA /* resource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0EA2C841190AD59D006DE0EA /* resource.cpp */; };
@@ -23,7 +21,6 @@
 		0EA2C84C19138C50006DE0EA /* algorithm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0EA2C84A19138C50006DE0EA /* algorithm.cpp */; };
 		0EA435A818F01E2800B0D8F8 /* GLUT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EA435A718F01E2800B0D8F8 /* GLUT.framework */; };
 		0EA435AA18F01E6900B0D8F8 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EA435A918F01E6900B0D8F8 /* OpenGL.framework */; };
-		0EA435AE18F0470600B0D8F8 /* test.txt in Resources */ = {isa = PBXBuildFile; fileRef = 0EA435AD18F0470600B0D8F8 /* test.txt */; };
 		0EA435B218F04BDC00B0D8F8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EA435B118F04BDC00B0D8F8 /* CoreFoundation.framework */; };
 /* End PBXBuildFile section */
 
@@ -35,10 +32,8 @@
 		0E28B68118EFE2D1008973F8 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = en; path = en.lproj/Credits.rtf; sourceTree = "<group>"; };
 		0E28B68918EFE2D1008973F8 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		0E28B6A518EFE4AA008973F8 /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = ../../../../Library/Frameworks/SDL2.framework; sourceTree = "<group>"; };
-		0E41C46418FC491800931AF2 /* test.vert */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; name = test.vert; path = "SDL2-904/Resources/test.vert"; sourceTree = "<group>"; };
-		0E41C46618FC494600931AF2 /* test.frag */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; name = test.frag; path = "SDL2-904/Resources/test.frag"; sourceTree = "<group>"; };
+		0E43AB611914F15D0067D1E9 /* res.pack */ = {isa = PBXFileReference; lastKnownFileType = file; name = res.pack; path = "SDL2-904/Resources/res.pack"; sourceTree = "<group>"; };
 		0E6E315519023305000C0449 /* libwebp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libwebp.a; path = ../../../../opt/local/lib/libwebp.a; sourceTree = "<group>"; };
-		0E6E315719023C2D000C0449 /* test_tex.webp */ = {isa = PBXFileReference; lastKnownFileType = file; name = test_tex.webp; path = "SDL2-904/Resources/test_tex.webp"; sourceTree = "<group>"; };
 		0EA2C838190AA234006DE0EA /* scene.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = scene.h; path = "SDL2-904/scene.h"; sourceTree = "<group>"; };
 		0EA2C839190AA331006DE0EA /* scene.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = scene.cpp; path = "SDL2-904/scene.cpp"; sourceTree = "<group>"; };
 		0EA2C83C190AD13E006DE0EA /* renderer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = renderer.cpp; path = "SDL2-904/renderer.cpp"; sourceTree = "<group>"; };
@@ -53,7 +48,6 @@
 		0EA2C84B19138C50006DE0EA /* algorithm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = algorithm.h; path = "SDL2-904/algorithm.h"; sourceTree = "<group>"; };
 		0EA435A718F01E2800B0D8F8 /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
 		0EA435A918F01E6900B0D8F8 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
-		0EA435AD18F0470600B0D8F8 /* test.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = test.txt; path = "SDL2-904/Resources/test.txt"; sourceTree = "<group>"; };
 		0EA435B118F04BDC00B0D8F8 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -146,10 +140,7 @@
 		0EA435AC18F0463600B0D8F8 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				0E6E315719023C2D000C0449 /* test_tex.webp */,
-				0EA435AD18F0470600B0D8F8 /* test.txt */,
-				0E41C46418FC491800931AF2 /* test.vert */,
-				0E41C46618FC494600931AF2 /* test.frag */,
+				0E43AB611914F15D0067D1E9 /* res.pack */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -163,6 +154,7 @@
 			buildPhases = (
 				0E28B66A18EFE2D1008973F8 /* Sources */,
 				0E28B66B18EFE2D1008973F8 /* Frameworks */,
+				0E43AB63191523A60067D1E9 /* ShellScript */,
 				0E28B66C18EFE2D1008973F8 /* Resources */,
 			);
 			buildRules = (
@@ -206,17 +198,30 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0EA435AE18F0470600B0D8F8 /* test.txt in Resources */,
 				0E28B67C18EFE2D1008973F8 /* InfoPlist.strings in Resources */,
 				0E28B68A18EFE2D1008973F8 /* Images.xcassets in Resources */,
-				0E41C46518FC491800931AF2 /* test.vert in Resources */,
 				0E28B68218EFE2D1008973F8 /* Credits.rtf in Resources */,
-				0E41C46718FC494600931AF2 /* test.frag in Resources */,
-				0E6E315819023C2D000C0449 /* test_tex.webp in Resources */,
+				0E43AB621914F15D0067D1E9 /* res.pack in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		0E43AB63191523A60067D1E9 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd ${PROJECT_DIR}/res_build\nmake\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0E28B66A18EFE2D1008973F8 /* Sources */ = {

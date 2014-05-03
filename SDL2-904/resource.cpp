@@ -9,21 +9,22 @@
 #include "resource.h"
 #include <CoreFoundation/CFBundle.h>
 #include <fstream>
+#include <algorithm>
 
-namespace hardrock
+namespace
 {
     struct CFDel
     {
         void operator() (CFTypeRef ref) { CFRelease(ref); }
     };
-    
+
     template <typename T>
     std::unique_ptr<T, CFDel> create_cfptr(T* ref)
     {
         return std::unique_ptr<T, CFDel>(ref);
     }
-    
-    int load_resource(const char* path, void* out_buffer, size_t out_size)
+
+    std::string FindResource(const char* path)
     {
         auto system_encoding = CFStringGetSystemEncoding();
         auto cp_path = create_cfptr(CFStringCreateWithCString(kCFAllocatorDefault, path, system_encoding));
@@ -32,20 +33,54 @@ namespace hardrock
                                         CFBundleCopyResourceURL(main_bundle, cp_path.get(), nullptr, nullptr));
         auto cp_data_path = create_cfptr(CFURLCopyFileSystemPath(cp_data_url.get(), kCFURLPOSIXPathStyle));
         const char* data_path = CFStringGetCStringPtr(cp_data_path.get(), system_encoding);
-        
-        std::ifstream file(data_path, std::ios::binary);
-        if (!file)
-            return -1;
-        file.seekg(0, file.end);
-        size_t file_size = file.tellg();
-        do
-        {
-            if (out_buffer == nullptr || out_size < file_size)
-                break;
-            file.seekg(0, file.beg);
-            file.read(static_cast<char*>(out_buffer), file_size);
-        } while (false);
-        return static_cast<int>(file_size);
+        return data_path;
+    }
+}
+
+namespace hardrock
+{
+    PackResourceManager::PackResourceManager(const char* path)
+    : pack_path(FindResource("res.pack"))
+    {
+        Header header;
+        std::ifstream file(pack_path);
+        file.read(reinterpret_cast<char*>(&header), sizeof(header));
+        if (header.identifier != std::array<char, 4>({'P', 'A', 'C', 'K'}))
+            return;
+        file.seekg(header.index_pos);
+        this->index_list.resize(header.count);
+        file.read(reinterpret_cast<char*>(&this->index_list[0]), header.count * sizeof(this->index_list[0]));
     }
 
+    int PackResourceManager::LoadResource(std::uint32_t rid, void* out_buffer, size_t out_size) const
+    {
+        auto iter = std::lower_bound(this->index_list.begin(), this->index_list.end(), rid,
+            [](const Index& index, std::uint32_t rid) { return index.rid < rid; });
+        if (iter == this->index_list.end() || iter->rid != rid)
+        {
+            return 0;
+        }
+        if (out_buffer != nullptr && out_size >= iter->size)
+        {
+            std::ifstream file(this->pack_path);
+            file.seekg(iter->pos);
+            file.read(reinterpret_cast<char*>(out_buffer), iter->size);
+        }
+        return static_cast<int>(iter->size);
+    }
+
+    std::unique_ptr<std::vector<std::uint8_t>> PackResourceManager::LoadResource(std::uint32_t rid) const
+    {
+        auto iter = std::lower_bound(this->index_list.begin(), this->index_list.end(), rid,
+            [](const Index& index, std::uint32_t rid) { return index.rid < rid; });
+        if (iter == this->index_list.end() || iter->rid != rid)
+        {
+            return 0;
+        }
+        std::unique_ptr<std::vector<std::uint8_t>> up_buffer(new std::vector<std::uint8_t>(iter->size));
+        std::ifstream file(this->pack_path);
+        file.seekg(iter->pos);
+        file.read(reinterpret_cast<char*>(&up_buffer->at(0)), iter->size);
+        return up_buffer;
+    }
 }
