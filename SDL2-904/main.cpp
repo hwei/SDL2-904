@@ -3,10 +3,11 @@
 #include <SDL2/SDL_opengl.h>
 //#include <OpenGL/glu.h>
 #include <iostream>
+#include "glm/gtc/constants.hpp"
 #include "renderer.h"
 #include "scene.h"
-#include "glm/gtx/fast_trigonometry.hpp"
-#include "glm/gtc/constants.hpp"
+#include "algorithm.h"
+
 
 static const int SCREEN_WIDTH = 640;
 static const int SCREEN_HEIGHT = 480;
@@ -59,42 +60,25 @@ namespace hardrock
             p_out_tile->color = { 240, 240, 240, 255 };
         }
     };
-    
-    void FastSinCos(float r, float* p_out_sin, float* p_out_cos)
-    {
-        static const float half_pi = glm::half_pi<float>();
-        static const float pi = glm::pi<float>();
-        static const float one_half_pi = pi + half_pi;
-        static const float double_pi = pi + pi;
-        r = glm::mod(r, double_pi);
-        if (r < half_pi)
-        {
-            *p_out_sin = glm::fastSin(r);
-            *p_out_cos = glm::fastCos(r);
-        }
-        else if (r < pi)
-        {
-            r = pi - r;
-            *p_out_sin = glm::fastSin(r);
-            *p_out_cos = -glm::fastCos(r);
-        }
-        else if (r < one_half_pi)
-        {
-            r = r - pi;
-            *p_out_sin = -glm::fastSin(r);
-            *p_out_cos = -glm::fastCos(r);
-        }
-        else
-        {
-            r = double_pi - r;
-            *p_out_sin = -glm::fastSin(r);
-            *p_out_cos = glm::fastCos(r);
-        }
-    }
 }
 
 int main(int argc, char* args[])
 {
+    hardrock::TexturePackInput pack_input[] =
+    {
+        {4, 1},
+        {4, 1},
+        {4, 1},
+        {1, 1},
+    };
+    hardrock::TexturePackOutput pack_output[4];
+    int r = hardrock::TexturePack(4, 4, 4, pack_input, pack_output);
+    std::cout << r << std::endl;
+    for (const auto& output : pack_output)
+    {
+        std::cout << static_cast<int>(output.x) << ' ' << static_cast<int>(output.y) << std::endl;
+    }
+    return 0;
     
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
