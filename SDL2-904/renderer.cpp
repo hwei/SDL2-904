@@ -46,6 +46,7 @@ namespace hardrock
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             {
+#if 0
                 auto up_test_img_data = std::move(resource_manager.LoadResource(FnvHash("test_tex.webp")));
                 assert(up_test_img_data.get() != nullptr);
                 int tex_width, tex_height;
@@ -57,6 +58,50 @@ namespace hardrock
                 const uint8_t* decode_result = WebPDecodeRGBAInto(&up_test_img_data->at(0), up_test_img_data->size(), &tex_data[0], tex_size, tex_stride);
                 assert(decode_result != nullptr);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, decode_result);
+#else
+                const size_t data_count = 16;
+                std::uint32_t rid_list[data_count] =
+                {
+                    hardrock::FnvHash("self_l.webp"),
+                    hardrock::FnvHash("self_m.webp"),
+                    hardrock::FnvHash("self_r.webp"),
+                    hardrock::FnvHash("enemy_l.webp"),
+                    hardrock::FnvHash("enemy_m.webp"),
+                    hardrock::FnvHash("enemy_r.webp"),
+                    hardrock::FnvHash("boss_l.webp"),
+                    hardrock::FnvHash("boss_m.webp"),
+                    hardrock::FnvHash("boss_r.webp"),
+                    hardrock::FnvHash("bullet_0.webp"),
+                    hardrock::FnvHash("bullet_1.webp"),
+                    hardrock::FnvHash("boom_0.webp"),
+                    hardrock::FnvHash("boom_1.webp"),
+                    hardrock::FnvHash("boom_2.webp"),
+                    hardrock::FnvHash("boom_3.webp"),
+                    hardrock::FnvHash("boom_4.webp"),
+                };
+                std::sort(rid_list, rid_list + data_count);
+                size_t res_size_list[data_count];
+                auto up_webp_pack_data = resource_manager.LoadResourceBatch(rid_list, data_count, res_size_list);
+                const std::uint32_t unit_length = 16;
+                const std::uint8_t unit_width = 8;
+                const std::uint8_t unit_height = 8;
+                hardrock::PackedTextureRect rect_list[data_count];
+                std::unique_ptr<std::vector<std::uint8_t>> up_out_image_data;
+                auto up_tex_pack_data = WebpToPackedTexture(unit_length, unit_width, unit_height, &up_webp_pack_data->at(0), res_size_list, data_count, rect_list);
+                assert(up_tex_pack_data != nullptr);
+                const std::uint8_t u_scale = 128 / unit_width;
+                const std::uint8_t v_scale = 128 / unit_height;
+                for (auto& rect : rect_list) {
+                    rect.x *= u_scale;
+                    rect.y *= v_scale;
+                    rect.width *= u_scale;
+                    rect.height *= v_scale;
+                }
+                const GLsizei tex_width = static_cast<GLsizei>(unit_width) * static_cast<GLsizei>(unit_length);
+                const GLsizei tex_height = static_cast<GLsizei>(unit_height) * static_cast<GLsizei>(unit_length);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &up_tex_pack_data->at(0));
+#endif
+                
             }
 
             GlHandle<OpGlShader> h_vertex_shader(GL_VERTEX_SHADER);

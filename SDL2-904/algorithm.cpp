@@ -72,6 +72,17 @@ namespace hardrock
         static const std::uint16_t NODE_FULL = -2;
         static const std::uint16_t NODE_EMPTY = -1;
         
+        std::vector<std::uint16_t> wide_to_narrow_idx_list(count);
+        for (size_t i = 0; i < wide_to_narrow_idx_list.size(); ++i)
+        {
+            wide_to_narrow_idx_list[i] = i;
+        }
+        std::sort(wide_to_narrow_idx_list.begin(), wide_to_narrow_idx_list.end(),
+            [sizes](std::uint16_t a, std::uint16_t b)
+        {
+            return sizes[a].width > sizes[b].width;
+        });
+        
         const std::uint8_t max_inner_node_count = count << 1;
         std::vector<InnerNode> inner_node_list(max_inner_node_count);
         std::vector<std::uint8_t> split_list;
@@ -88,13 +99,15 @@ namespace hardrock
         std::uint16_t root_node_idx = NODE_EMPTY;
         for (std::uint16_t i = 0; i < count; ++i)
         {
-            const TexturePackInput* p_size = sizes + i;
-            
+            const std::uint16_t tex_idx = wide_to_narrow_idx_list[i];
+            const TexturePackInput* p_size = sizes + tex_idx;
+            printf("size: %d %d\n", p_size->width, p_size->height);
+
             if (root_node_idx == NODE_FULL)
                 return -3;
             visit_stack.resize(0);
-            visit_stack.push_back({0, 0, width, height, &root_node_idx, false});
-            printf("visit_stack.push_back %d %d %d %d ? false\n", 0, 0, width, height);
+            visit_stack.push_back({0, 0, width, height, &root_node_idx, true});
+            printf("visit_stack.push_back %d %d %d %d ? %d\n", 0, 0, width, height, true);
             bool inserted = false;
             while (visit_stack.size())
             {
@@ -169,7 +182,7 @@ namespace hardrock
                         }
                     }
                     
-                    auto p_out = out_positions + i;
+                    auto p_out = out_positions + tex_idx;
                     p_out->x = visit_data.x;
                     p_out->y = visit_data.y;
                     printf("put tex %d %d\n", visit_data.x, visit_data.y);

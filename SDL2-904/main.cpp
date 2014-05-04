@@ -65,21 +65,6 @@ namespace hardrock
 
 int main(int argc, char* args[])
 {
-    hardrock::TexturePackInput pack_input[] =
-    {
-        {4, 1},
-        {4, 1},
-        {4, 1},
-        {1, 1},
-    };
-    hardrock::TexturePackOutput pack_output[4];
-    int r = hardrock::TexturePack(4, 4, 4, pack_input, pack_output);
-    std::cout << r << std::endl;
-    for (const auto& output : pack_output)
-    {
-        std::cout << static_cast<int>(output.x) << ' ' << static_cast<int>(output.y) << std::endl;
-    }
-
     hardrock::PackResourceManager resource_manager("res.pack");
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -119,19 +104,20 @@ int main(int argc, char* args[])
         const float pi = glm::pi<float>();
         const float double_pi = pi * 2.0f;
         const float half_pi = glm::half_pi<float>();
+        const size_t sprite_count = 16;
         struct SpriteData
         {
             glm::vec2 pos;
             float radius;
             hardrock::Scene::IndexType tile_idx;
             hardrock::Scene::IndexType padding;
-        } sprite_data[64];
-        for (int i = 0; i < 64; ++i)
+        } sprite_data[sprite_count];
+        for (int i = 0; i < sprite_count; ++i)
         {
             auto tile_idx = scene.TileAdd(layer_idx);
-            int x = i % 8;
-            int y = i / 8;
-            sprite_data[i] = { { 32 + x * 64, 32 + y * 64 }, (i % 4) * half_pi, tile_idx, 0 };
+            int x = i % 4;
+            int y = i / 4;
+            sprite_data[i] = { { 64 + x * 128, 64 + y * 128 }, (i % 4) * half_pi, tile_idx, 0 };
         }
 
         typedef decltype(SDL_GetTicks()) tick_t;
@@ -155,7 +141,7 @@ int main(int argc, char* args[])
                 break;
             }
 
-            for (int i = 0; i < 64; ++i)
+            for (int i = 0; i < sprite_count; ++i)
             {
                 SpriteData& s = sprite_data[i];
                 s.radius += 0.01f;
