@@ -51,14 +51,64 @@ namespace hardrock
         , anchor(anchor)
         {
         }
-        void SetTile(const glm::vec2& pos, const glm::vec2& scale, const glm::vec2& norm_dir, Tile* p_out_tile)
+        void SetTileWithPosScaleDir(const glm::vec2& pos, const glm::vec2& scale, const glm::vec2& norm_dir, Tile* p_out_tile)
         {
             const glm::vec2 size = this->size * scale;
             const glm::mat2 transform(norm_dir.x * size.x, norm_dir.y * size.x, -norm_dir.y * size.y, norm_dir.x * size.y);
             p_out_tile->transform = transform;
-            p_out_tile->translate = transform * (-this->anchor) + pos;
+            p_out_tile->translate = pos - transform * this->anchor;
             p_out_tile->tex = this->tex;
             p_out_tile->color = { 240, 240, 240, 255 };
+        }
+        void SetTileWithPos(const glm::vec2& pos, Tile* p_out_tile)
+        {
+            p_out_tile->transform = glm::mat2();
+            p_out_tile->translate = pos - this->anchor;
+            p_out_tile->tex = this->tex;
+            p_out_tile->color = { 240, 240, 240, 255 };
+        }
+    };
+    
+    struct IControlTarget
+    {
+        virtual ~IControlTarget() { }
+        virtual void Move(float x, float y) = 0;
+    };
+    
+    class KeyboardControl
+    {
+        int left, right, up, down;
+    public:
+        KeyboardControl() : left(0), right(0), up(0), down(0) { }
+        void KeyStatus(int scan_code, bool pressed)
+        {
+            int v = pressed ? 1 : 0;
+            switch (scan_code)
+            {
+                case SDL_SCANCODE_UP:
+                    this->up = v;
+                    break;
+                case SDL_SCANCODE_DOWN:
+                    this->down = v;
+                    break;
+                case SDL_SCANCODE_LEFT:
+                    this->left = v;
+                    break;
+                case SDL_SCANCODE_RIGHT:
+                    this->right = v;
+                    break;
+                default:
+                    return;
+            }
+        }
+        void Control(IControlTarget* p_target)
+        {
+            int x = this->right - this->left;
+            int y = this->down - this->up;
+            if (x && y)
+                p_target->Move(x * glm::one_over_root_two<float>(), y * glm::one_over_root_two<float>());
+            else
+                p_target->Move(static_cast<float>(x), static_cast<float>(y));
         }
     };
 }
@@ -99,8 +149,8 @@ int main(int argc, char* args[])
         hardrock::SpriteModel sprite_modle({128, 128}, {0, 0, 128, 128}, {0.5, 0.5});
 
         hardrock::Scene scene;
-        auto layer_idx = scene.LayerAdd();
-        scene.LayerAt(layer_idx) = {{0, 0, 0}};
+        auto bg_layer_idx = scene.LayerAdd();
+        scene.LayerAt(bg_layer_idx) = {{0, 0, 0}};
         const float pi = glm::pi<float>();
         const float double_pi = pi * 2.0f;
         const float half_pi = glm::half_pi<float>();
@@ -114,11 +164,31 @@ int main(int argc, char* args[])
         } sprite_data[sprite_count];
         for (int i = 0; i < sprite_count; ++i)
         {
-            auto tile_idx = scene.TileAdd(layer_idx);
+            auto tile_idx = scene.TileAdd(bg_layer_idx);
             int x = i % 4;
             int y = i / 4;
             sprite_data[i] = { { 64 + x * 128, 64 + y * 128 }, (i % 4) * half_pi, tile_idx, 0 };
         }
+        class ControlLayer : public hardrock::IControlTarget
+        {
+            hardrock::Scene* p_scene;
+            hardrock::Scene::IndexType layer_idx;
+            float x, y;
+        public:
+            ControlLayer(hardrock::Scene* p_scene, hardrock::Scene::IndexType layer_idx)
+            : p_scene(p_scene), layer_idx(layer_idx)
+            , x(0), y(0)
+            {
+            }
+            void Move(float x, float y) override
+            {
+                this->x += x;
+                this->y += y;
+                p_scene->LayerAt(layer_idx).pos = {this->x, this->y, 0};
+            }
+        };
+        ControlLayer control_layer(&scene, bg_layer_idx);
+        hardrock::KeyboardControl keyboard_control;
 
         typedef decltype(SDL_GetTicks()) tick_t;
         tick_t last_fps_tick = SDL_GetTicks();
@@ -130,16 +200,28 @@ int main(int argc, char* args[])
             bool b_quit = false;
             while (SDL_PollEvent(&e) != 0)
             {
-                if (e.type == SDL_QUIT)
+                switch(e.type)
                 {
-                    b_quit = true;
-                    break;
+                    case SDL_QUIT:
+                        b_quit = true;
+                        break;
+                    case SDL_KEYDOWN:
+                        if (!e.key.repeat)
+                        {
+                            keyboard_control.KeyStatus(e.key.keysym.scancode, e.key.state);
+                        }
+                        break;
+                    case SDL_KEYUP:
+                        keyboard_control.KeyStatus(e.key.keysym.scancode, e.key.state);
+                        break;
                 }
             }
             if (b_quit)
             {
                 break;
             }
+
+            keyboard_control.Control(&control_layer);
 
             for (int i = 0; i < sprite_count; ++i)
             {
@@ -149,7 +231,7 @@ int main(int argc, char* args[])
                     s.radius -= double_pi;
                 glm::vec2 norm;
                 hardrock::FastSinCos(s.radius, &norm.y, &norm.x);
-                sprite_modle.SetTile(s.pos, {1, 1}, norm, &scene.TileAt(s.tile_idx));
+                sprite_modle.SetTileWithPosScaleDir(s.pos, {1, 1}, norm, &scene.TileAt(s.tile_idx));
             }
 
             glClearColor(0.2f, 0.0f, 0.2f, 1.0f);
