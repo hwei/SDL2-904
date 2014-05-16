@@ -9,6 +9,7 @@ DIRS:=$(PACK_DIR) $(WEBP_DIR)
 
 PNGS:=$(shell find "$(PNG_DIR)" -name '*.png')
 WEBPS:=$(patsubst $(PNG_DIR)/%.png,$(WEBP_DIR)/%.webp,$(PNGS))
+SHADERS:=$(shell find "$(SHADER_DIR)" -type f)
 WEBP_LIST:=$(BUILD_DIR)/webp.lst
 SHADER_LIST:=$(BUILD_DIR)/shader.lst
 FULL_LIST:=$(BUILD_DIR)/full.lst
@@ -16,6 +17,7 @@ FULL_LIST:=$(BUILD_DIR)/full.lst
 all: $(PACK)
 
 clean:
+	rm -f $(PACK)
 	rm -f $(WEBP_LIST)
 	rm -rf $(WEBP_DIR)
 
@@ -28,7 +30,7 @@ $(FULL_LIST): $(WEBP_LIST) $(SHADER_LIST)
 $(WEBP_LIST): $(WEBPS)
 	./make_res_list "$(WEBP_DIR)" > $@
 
-$(SHADER_LIST):
+$(SHADER_LIST): $(SHADERS)
 	./make_res_list "$(SHADER_DIR)" > $@
 
 $(WEBP_DIR)/%.webp: $(PNG_DIR)/%.png | $(WEBP_DIR)
