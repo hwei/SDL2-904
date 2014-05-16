@@ -16,18 +16,164 @@
 
 namespace hardrock
 {
-    Renderer::Renderer(int screen_width, int screen_height, IResourceManager& resource_manager)
+    Renderer::TextureAtlasRender::TextureAtlasRender(Renderer* p_render)
+    : h_textures(1)
+    , p_render(p_render)
+    , vertex_buffer(MAX_TILE_COUNT * 4)
+    {
+        this->tex = this->h_textures.get(0);
+    }
+    
+    std::unique_ptr<Renderer::TextureAtlasRender> Renderer::TextureAtlasRender::Create(Renderer* p_render, const IResourceDataSet& data_set, std::uint16_t unit_length, std::uint8_t width, std::uint8_t height, int& out_error_code)
+    {
+        assert((width & (width - 1)) == 0);
+        assert((height & (height - 1)) == 0);
+        assert(width <= 128 && height <= 128);
+        int r;
+        std::unique_ptr<TextureAtlasRender> up_render(new TextureAtlasRender(p_render));
+        auto data_count = data_set.Count();
+        up_render->rect_list.resize(data_count);
+        std::vector<TexturePackInput> pack_input(data_count);
+        std::vector<TexturePackOutput> pack_output(data_count);
+        const int int_unit_length = static_cast<int>(unit_length);
+        for (std::size_t i = 0; i < data_count; ++i)
+        {
+            int w, h;
+            const std::uint8_t* p_webp_data;
+            std::size_t size;
+            r = data_set.GetDataByIdx(i, p_webp_data, size);
+            assert(r == 0);
+            r = WebPGetInfo(p_webp_data, size, &w, &h);
+            if (r == 0)
+            {
+                out_error_code = 1;
+                return nullptr;
+            }
+            if (w % int_unit_length)
+            {
+                out_error_code = 2;
+                return nullptr;
+            }
+            if (h % int_unit_length)
+            {
+                out_error_code = 2;
+                return nullptr;
+            }
+            w /= int_unit_length;
+            if (w > width)
+            {
+                out_error_code = 3;
+                return nullptr;
+            }
+            h /= int_unit_length;
+            if (h > height)
+            {
+                out_error_code = 3;
+                return nullptr;
+            }
+            pack_input[i].width = static_cast<std::uint8_t>(w);
+            pack_input[i].height = static_cast<std::uint8_t>(h);
+        }
+        r = TexturePack(width, height, static_cast<std::uint16_t>(data_count), &pack_input[0], &pack_output[0]);
+        if (r != 0)
+        {
+            out_error_code = 0x100 | r;
+            return nullptr;
+        }
+        const size_t size_t_unit_length = static_cast<size_t>(unit_length);
+        const size_t tex_width = static_cast<size_t>(width) * size_t_unit_length;
+        const size_t tex_height = static_cast<size_t>(height) * size_t_unit_length;
+        const size_t tex_stride = tex_width * 4 * sizeof(std::uint8_t);
+        const int int_tex_stride = static_cast<int>(tex_stride);
+        std::unique_ptr<std::vector<std::uint8_t>> up_image_data(new std::vector<std::uint8_t>(tex_height * tex_stride));
+        const std::uint8_t coord_w_scale = 128 / width;
+        const std::uint8_t coord_h_scale = 128 / height;
+        for (std::size_t i = 0; i < data_count; ++i)
+        {
+            const size_t x = static_cast<size_t>(pack_output[i].x) * size_t_unit_length;
+            const size_t y = static_cast<size_t>(pack_output[i].y) * size_t_unit_length;
+            const size_t sub_tex_height = static_cast<size_t>(pack_input[i].height) * size_t_unit_length;
+            std::uint8_t * const p = &up_image_data->at(0) + y * tex_stride + x * 4 * sizeof(std::uint8_t);
+            const std::uint8_t* p_webp_data;
+            std::size_t size;
+            r = data_set.GetDataByIdx(i, p_webp_data, size);
+            assert(r == 0);
+            const uint8_t* decode_result = WebPDecodeRGBAInto(p_webp_data, size, p, sub_tex_height * tex_stride, int_tex_stride);
+            if (decode_result == nullptr)
+            {
+                out_error_code = 4;
+                return nullptr;
+            }
+            up_render->rect_list[i].x = pack_output[i].x * coord_w_scale;
+            up_render->rect_list[i].y = pack_output[i].y * coord_h_scale;
+            up_render->rect_list[i].z = (pack_output[i].x + pack_input[i].width) * coord_w_scale;
+            up_render->rect_list[i].w = (pack_output[i].y + pack_input[i].height) * coord_h_scale;
+        }
+        
+        glBindTexture(GL_TEXTURE_2D, up_render->tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, static_cast<GLsizei>(tex_width), static_cast<GLsizei>(tex_height), 0, GL_RGBA, GL_UNSIGNED_BYTE, &up_image_data->at(0));
+
+        return up_render;
+    }
+    
+    int Renderer::TextureAtlasRender::Render(std::unique_ptr<ITileSequence>&& tile_sequence)
+    {
+        if (tile_sequence->Count() > MAX_TILE_COUNT)
+            return 1;
+        
+        Tile tile;
+        std::size_t tile_count = 0;
+        TileVertex* p = &this->vertex_buffer[0];
+        const float xm = 2.0f / this->p_render->screen_width;
+        const float ym = -2.0f / this->p_render->screen_height;
+        const float xa = -1.0f - 0.5f / this->p_render->screen_width;
+        const float ya = 1.0f + 0.5f / this->p_render->screen_height;
+        while (tile_sequence->Next(tile))
+        {
+            TileVertex* pv0 = p + (tile_count << 2);
+            TileVertex* pv1 = pv0 + 1;
+            TileVertex* pv2 = pv0 + 2;
+            TileVertex* pv3 = pv0 + 3;
+            glm::vec2 translate(tile.translate.x * xm + xa, tile.translate.y * ym + ya);
+            glm::u8vec4 tex = this->rect_list[tile.tex_id];
+            glm::u8vec4 color = tile.color;
+            glm::vec2 vec_x(tile.transform[0].x * xm, tile.transform[0].y * ym);
+            glm::vec2 vec_y(tile.transform[1].x * xm, tile.transform[1].y * ym);
+            pv0->pos = translate;
+            pv1->pos = translate + vec_x;
+            pv2->pos = translate + vec_x + vec_y;
+            pv3->pos = translate + vec_y;
+            pv0->tex.x = tex.x;
+            pv1->tex.x = tex.z;
+            pv2->tex.x = tex.z;
+            pv3->tex.x = tex.x;
+            pv0->tex.y = tex.y;
+            pv1->tex.y = tex.y;
+            pv2->tex.y = tex.w;
+            pv3->tex.y = tex.w;
+            pv0->color = color;
+            pv1->color = color;
+            pv2->color = color;
+            pv3->color = color;
+            
+            ++tile_count;
+            if (tile_count >= MAX_TILE_COUNT)
+                break;
+        }
+        
+        return this->p_render->render(p, tile_count, this->tex);
+    }
+    
+    Renderer::Renderer(int screen_width, int screen_height, const std::uint8_t* p_vert_shader_data, std::size_t vert_shader_data_size, const std::uint8_t* p_frag_shader_data, std::size_t frag_shader_data_size)
     : screen_width(screen_width)
     , screen_height(screen_height)
     , b_valid(false)
     , h_vertex_arrays(1)
     , h_buffers(2)
-    , h_textures(1)
-    , vertex_buffer(MAX_TILE_COUNT * 4)
-    , xm(2.0f / screen_width)
-    , ym(-2.0f / screen_height)
-    , xa(-1.0f - 0.5f / screen_width)
-    , ya(1.0f + 0.5f / screen_height)
     {
         static GLushort elements[] = {
             0, 1, 2,
@@ -38,80 +184,12 @@ namespace hardrock
         GLenum error;
         do
         {
-            this->tex = this->h_textures.get(0);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            {
-#if 0
-                auto up_test_img_data = std::move(resource_manager.LoadResource(FnvHash("test_tex.webp")));
-                assert(up_test_img_data.get() != nullptr);
-                int tex_width, tex_height;
-                r = WebPGetInfo(&up_test_img_data->at(0), up_test_img_data->size(), &tex_width, &tex_height);
-                assert(r);
-                int tex_stride = tex_width * 4 * sizeof(uint8_t);
-                int tex_size = tex_stride * tex_height;
-                std::vector<uint8_t> tex_data(tex_size);
-                const uint8_t* decode_result = WebPDecodeRGBAInto(&up_test_img_data->at(0), up_test_img_data->size(), &tex_data[0], tex_size, tex_stride);
-                assert(decode_result != nullptr);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, decode_result);
-#else
-                const size_t data_count = 16;
-                std::uint32_t rid_list[data_count] =
-                {
-                    hardrock::FnvHash("self_l.webp"),
-                    hardrock::FnvHash("self_m.webp"),
-                    hardrock::FnvHash("self_r.webp"),
-                    hardrock::FnvHash("enemy_l.webp"),
-                    hardrock::FnvHash("enemy_m.webp"),
-                    hardrock::FnvHash("enemy_r.webp"),
-                    hardrock::FnvHash("boss_l.webp"),
-                    hardrock::FnvHash("boss_m.webp"),
-                    hardrock::FnvHash("boss_r.webp"),
-                    hardrock::FnvHash("bullet_0.webp"),
-                    hardrock::FnvHash("bullet_1.webp"),
-                    hardrock::FnvHash("boom_0.webp"),
-                    hardrock::FnvHash("boom_1.webp"),
-                    hardrock::FnvHash("boom_2.webp"),
-                    hardrock::FnvHash("boom_3.webp"),
-                    hardrock::FnvHash("boom_4.webp"),
-                };
-                std::sort(rid_list, rid_list + data_count);
-                size_t res_size_list[data_count];
-                auto up_webp_pack_data = resource_manager.LoadResourceBatch(rid_list, data_count, res_size_list);
-                const std::uint32_t unit_length = 16;
-                const std::uint8_t unit_width = 8;
-                const std::uint8_t unit_height = 8;
-                hardrock::PackedTextureRect rect_list[data_count];
-                std::unique_ptr<std::vector<std::uint8_t>> up_out_image_data;
-                auto up_tex_pack_data = WebpToPackedTexture(unit_length, unit_width, unit_height, &up_webp_pack_data->at(0), res_size_list, data_count, rect_list);
-                assert(up_tex_pack_data != nullptr);
-                const std::uint8_t u_scale = 128 / unit_width;
-                const std::uint8_t v_scale = 128 / unit_height;
-                for (auto& rect : rect_list) {
-                    rect.x *= u_scale;
-                    rect.y *= v_scale;
-                    rect.width *= u_scale;
-                    rect.height *= v_scale;
-                }
-                const GLsizei tex_width = static_cast<GLsizei>(unit_width) * static_cast<GLsizei>(unit_length);
-                const GLsizei tex_height = static_cast<GLsizei>(unit_height) * static_cast<GLsizei>(unit_length);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &up_tex_pack_data->at(0));
-#endif
-                
-            }
-
             GlHandle<OpGlShader> h_vertex_shader(GL_VERTEX_SHADER);
             {
-                auto up_vertex_shader_data = std::move(resource_manager.LoadResource(FnvHash("test.vert")));
-                assert(up_vertex_shader_data.get() != nullptr);
                 const GLchar* vertex_shader_data_list[1];
-                vertex_shader_data_list[0] = reinterpret_cast<GLchar*>(&up_vertex_shader_data->at(0));
+                vertex_shader_data_list[0] = reinterpret_cast<const GLchar*>(p_vert_shader_data);
                 GLint vertex_shader_size_list[1];
-                vertex_shader_size_list[0] = static_cast<GLint>(up_vertex_shader_data->size());
+                vertex_shader_size_list[0] = static_cast<GLint>(vert_shader_data_size);
                 glShaderSource(h_vertex_shader, 1, vertex_shader_data_list, vertex_shader_size_list);
                 glCompileShader(h_vertex_shader);
                 glGetShaderiv(h_vertex_shader, GL_COMPILE_STATUS, &r);
@@ -126,12 +204,10 @@ namespace hardrock
 
             GlHandle<OpGlShader> h_fragment_shader(GL_FRAGMENT_SHADER);
             {
-                auto up_frag_shader_data = std::move(resource_manager.LoadResource(FnvHash("test.frag")));
-                assert(up_frag_shader_data.get() != nullptr);
                 const GLchar* frag_shader_data_list[1];
-                frag_shader_data_list[0] = reinterpret_cast<GLchar*>(&up_frag_shader_data->at(0));
+                frag_shader_data_list[0] = reinterpret_cast<const GLchar*>(p_frag_shader_data);
                 GLint frag_shader_size_list[1];
-                frag_shader_size_list[0] = static_cast<GLint>(up_frag_shader_data->size());
+                frag_shader_size_list[0] = static_cast<GLint>(frag_shader_data_size);
                 glShaderSource(h_fragment_shader, 1, frag_shader_data_list, frag_shader_size_list);
                 glCompileShader(h_fragment_shader);
                 glGetShaderiv(h_fragment_shader, GL_COMPILE_STATUS, &r);
@@ -202,63 +278,30 @@ namespace hardrock
         }
     }
 
-    int Renderer::Begin(size_t count)
+    std::unique_ptr<ITileRender> Renderer::GetTextureAtlasRender(const IResourceDataSet& data_set, std::uint16_t unit_length, std::uint8_t width, std::uint8_t height, int& out_error_code)
     {
-        if (count > MAX_TILE_COUNT)
-            return -1;
-        this->tile_count = 0;
-        return 0;
+        return std::move(TextureAtlasRender::Create(this, data_set, unit_length, width, height, out_error_code));
     }
-
-    int Renderer::AddTile(const Tile& tile)
-    {
-        if (this->tile_count >= MAX_TILE_COUNT - 1)
-            return -1;
-        TileVertex* pv0 = &this->vertex_buffer[this->tile_count * 4];
-        TileVertex* pv1 = pv0 + 1;
-        TileVertex* pv2 = pv0 + 2;
-        TileVertex* pv3 = pv0 + 3;
-        glm::vec2 translate(tile.translate.x * this->xm + this->xa, tile.translate.y * this->ym + this->ya);
-        glm::u8vec4 tex = tile.tex;
-        glm::u8vec4 color = tile.color;
-        glm::vec2 vec_x(tile.transform[0].x * this->xm, tile.transform[0].y * this->ym);
-        glm::vec2 vec_y(tile.transform[1].x * this->xm, tile.transform[1].y * this->ym);
-        pv0->pos = translate;
-        pv1->pos = translate + vec_x;
-        pv2->pos = translate + vec_x + vec_y;
-        pv3->pos = translate + vec_y;
-        pv0->tex.x = tex.x;
-        pv1->tex.x = tex.z;
-        pv2->tex.x = tex.z;
-        pv3->tex.x = tex.x;
-        pv0->tex.y = tex.y;
-        pv1->tex.y = tex.y;
-        pv2->tex.y = tex.w;
-        pv3->tex.y = tex.w;
-        pv0->color = color;
-        pv1->color = color;
-        pv2->color = color;
-        pv3->color = color;
-        ++this->tile_count;
-        return 0;
-    }
-
-    int Renderer::End()
+    
+    int Renderer::render(const TileVertex* p_vertex_buffer, std::size_t tile_count, GLuint tex_id)
     {
         GLenum error;
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_BLEND);
         glUseProgram(this->h_program);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tex_id);
         glUniform1i(this->shader_sampler, 0);
         glBindVertexArray(this->vao);
         glBufferData(GL_ARRAY_BUFFER, sizeof(TileVertex) * 4 * MAX_TILE_COUNT, nullptr, GL_STREAM_DRAW);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(TileVertex) * this->tile_count * 4, &this->vertex_buffer[0]);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(TileVertex) * tile_count * 4, p_vertex_buffer);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(6 * this->tile_count), GL_UNSIGNED_SHORT, nullptr);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(6 * tile_count), GL_UNSIGNED_SHORT, nullptr);
         error = glGetError();
         if (error != GL_NO_ERROR)
         {
             std::cerr << "OpenGL error: " << error << std::endl;
+            return 1;
         }
         return 0;
     }

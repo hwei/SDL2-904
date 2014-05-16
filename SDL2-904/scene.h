@@ -10,6 +10,7 @@
 #define SDL2_904_scene_h
 
 #include <vector>
+#include <memory>
 #include "tile.h"
 #include "glm/vec3.hpp"
 #include "structure.h"
@@ -73,7 +74,7 @@ namespace hardrock
         IndexType TileAdd(IndexType layer_idx);
         int TileDelete(IndexType tile_idx);
         Tile& TileAt(IndexType layer_idx);
-        int Render(ITileRender* p_tile_render);
+        std::unique_ptr<ITileSequence> GetTileSequence();
     };
 
 }

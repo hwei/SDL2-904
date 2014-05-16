@@ -20,18 +20,23 @@ namespace hardrock
     {
         glm::mat2 transform;
         glm::vec2 translate;
-        glm::u8vec4 tex;
+        std::uint16_t tex_id;
+        std::uint16_t palette_id;
         glm::u8vec4 color;
     };
     
+    struct ITileSequence
+    {
+        virtual ~ITileSequence() { }
+        virtual std::size_t Count() const = 0;
+        virtual bool Next(Tile& out_tile) = 0;
+    };
+
     struct ITileRender
     {
         virtual ~ITileRender() { }
-        virtual int Begin(size_t count) = 0;
-        virtual int AddTile(const Tile& tile) = 0;
-        virtual int End() = 0;
+        virtual int Render(std::unique_ptr<ITileSequence>&& tile_sequence) = 0;
     };
-
 }
 
 #endif

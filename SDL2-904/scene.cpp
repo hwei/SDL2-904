@@ -85,8 +85,8 @@ namespace hardrock
     {
         return this->tile_data[tile_idx];
     }
-    
-    int Scene::Render(ITileRender* p_tile_render)
+
+    std::unique_ptr<ITileSequence> Scene::GetTileSequence()
     {
         if (this->layers_need_sort)
         {
@@ -97,6 +97,8 @@ namespace hardrock
                 layer_idx = this->layer_list_pool.Next(layer_idx);
                 if (layer_idx == LAYER_LIST_HEAD)
                     break;
+                if (this->layer_data[layer_idx].layer.pos.z < 0)
+                    continue;
                 this->sorted_layers.push_back(&this->layer_data[layer_idx]);
             }
             const LayerNode* p_layer_data = &this->layer_data[0];
@@ -104,28 +106,69 @@ namespace hardrock
             this->layers_need_sort = false;
         }
         
-        int r = p_tile_render->Begin(this->tile_count);
-        if (r != 0)
-            return r;
-
-        for (const LayerNode* p_layer : this->sorted_layers)
+        struct TileSequence : public ITileSequence
         {
-            if (p_layer->layer.pos.z < 0)
-                continue;
-            const IndexType tile_list_head = p_layer->tile_list_head;
-            IndexType tile_idx = tile_list_head;
-            while (true)
+            const Scene *p_scene;
+            const std::size_t count;
+            std::vector<const LayerNode*>::const_iterator layer_iter;
+            IndexType tile_list_head;
+            IndexType tile_idx;
+            bool end;
+            
+            TileSequence(const Scene *p_scene)
+            : p_scene (p_scene)
+            , count(p_scene->tile_count)
+            , layer_iter(p_scene->sorted_layers.begin())
+            , tile_list_head(0)
+            , tile_idx(0)
+            , end(false)
             {
-                tile_idx = this->tile_list_pool.Prev(tile_idx);
-                if (tile_idx == tile_list_head)
-                    break;
-                Tile tile = this->tile_data[tile_idx];
-                tile.translate.x += p_layer->layer.pos.x;
-                tile.translate.y += p_layer->layer.pos.y;
-                p_tile_render->AddTile(tile);
+                if (this->layer_iter != p_scene->sorted_layers.end())
+                {
+                    IndexType head_idx = (*this->layer_iter)->tile_list_head;
+                    this->tile_list_head = head_idx;
+                    this->tile_idx = head_idx;
+                }
+                else
+                {
+                    this->end = true;
+                }
             }
-        }
-
-        return p_tile_render->End();
+            std::size_t Count() const override
+            {
+                return this->count;
+            }
+            bool Next(Tile& out_tile) override
+            {
+                if (this->end)
+                    return false;
+                while (true)
+                {
+                    this->tile_idx = this->p_scene->tile_list_pool.Prev(this->tile_idx);
+                    if (this->tile_idx == this->tile_list_head)
+                    {
+                        ++this->layer_iter;
+                        if (this->layer_iter == p_scene->sorted_layers.end())
+                        {
+                            this->end = true;
+                            return false;
+                        }
+                        
+                        IndexType head_idx = (*this->layer_iter)->tile_list_head;
+                        this->tile_list_head = head_idx;
+                        this->tile_idx = head_idx;
+                    }
+                    else
+                    {
+                        out_tile = this->p_scene->tile_data[tile_idx];
+                        out_tile.translate.x += (*this->layer_iter)->layer.pos.x;
+                        out_tile.translate.y += (*this->layer_iter)->layer.pos.y;
+                        return true;
+                    }
+                }
+            }
+        };
+        
+        return std::unique_ptr<ITileSequence>(new TileSequence(this));
     }
 }

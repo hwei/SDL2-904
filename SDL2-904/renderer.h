@@ -24,7 +24,8 @@
 
 namespace hardrock
 {
-    class Renderer : public ITileRender
+
+    class Renderer
     {
         const int screen_width;
         const int screen_height;
@@ -32,12 +33,11 @@ namespace hardrock
         GLuint vao;
         GLuint vbo;
         GLuint ebo;
-        GLuint tex;
         GLuint shader_sampler;
         GlHandles<OpGlVertexArrays> h_vertex_arrays;
         GlHandles<OpGlBuffers> h_buffers;
-        GlHandles<OpGlTextures> h_textures;
         GlHandle<OpGlProgram> h_program;
+
         struct TileVertex
         {
             glm::vec2 pos;
@@ -45,16 +45,26 @@ namespace hardrock
             glm::u8vec2 padding;
             glm::u8vec4 color;
         };
-        std::vector<TileVertex> vertex_buffer;
-        size_t tile_count;
-        const float xm, ym, xa, ya;
+        
+        class TextureAtlasRender : public ITileRender
+        {
+            std::vector<glm::u8vec4> rect_list;
+            GlHandles<OpGlTextures> h_textures;
+            GLuint tex;
+            std::vector<TileVertex> vertex_buffer;
+            Renderer* p_render;
+            TextureAtlasRender(Renderer* p_render);
+        public:
+            static std::unique_ptr<TextureAtlasRender> Create(Renderer* p_render, const IResourceDataSet& data_set, std::uint16_t unit_length, std::uint8_t width, std::uint8_t height, int& out_error_code);
+            int Render(std::unique_ptr<ITileSequence>&& tile_sequence) override;
+        };
+        
+        int render(const TileVertex* p_vertex_buffer, std::size_t tile_count, GLuint tex_id);
     public:
         const static size_t MAX_TILE_COUNT = 1024;
-        Renderer(int screen_width, int screen_height, IResourceManager& resource_manager);
+        Renderer(int screen_width, int screen_height, const std::uint8_t* p_vert_shader_data, std::size_t vert_shader_data_size, const std::uint8_t* p_frag_shader_data, std::size_t frag_shader_data_size);
         bool Valid() const { return this->b_valid; }
-        int Begin(size_t count) override;
-        int AddTile(const Tile& tile) override;
-        int End() override;
+        std::unique_ptr<ITileRender> GetTextureAtlasRender(const IResourceDataSet& data_set, std::uint16_t unit_length, std::uint8_t width, std::uint8_t height, int& out_error_code);
     };
 }
 

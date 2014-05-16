@@ -3,6 +3,9 @@
 #include <SDL2/SDL_opengl.h>
 //#include <OpenGL/glu.h>
 #include <iostream>
+#include <array>
+#include <algorithm>
+#include <cassert>
 #include "glm/gtc/constants.hpp"
 #include "renderer.h"
 #include "scene.h"
@@ -42,13 +45,15 @@ namespace hardrock
     class SpriteModel
     {
         const glm::vec2 size;
-        const glm::u8vec4 tex;
         const glm::vec2 anchor;
+        const std::uint16_t tex_id;
+        const std::uint16_t padding;
     public:
-        SpriteModel(const glm::vec2& size, const glm::u8vec4 & tex, const glm::vec2& anchor)
+        SpriteModel(const glm::vec2& size, const glm::vec2& anchor, std::uint16_t tex_id)
         : size(size)
-        , tex(tex)
         , anchor(anchor)
+        , tex_id(tex_id)
+        , padding(0)
         {
         }
         void SetTileWithPosScaleDir(const glm::vec2& pos, const glm::vec2& scale, const glm::vec2& norm_dir, Tile* p_out_tile)
@@ -57,14 +62,14 @@ namespace hardrock
             const glm::mat2 transform(norm_dir.x * size.x, norm_dir.y * size.x, -norm_dir.y * size.y, norm_dir.x * size.y);
             p_out_tile->transform = transform;
             p_out_tile->translate = pos - transform * this->anchor;
-            p_out_tile->tex = this->tex;
+            p_out_tile->tex_id = this->tex_id;
             p_out_tile->color = { 240, 240, 240, 255 };
         }
         void SetTileWithPos(const glm::vec2& pos, Tile* p_out_tile)
         {
             p_out_tile->transform = glm::mat2();
             p_out_tile->translate = pos - this->anchor;
-            p_out_tile->tex = this->tex;
+            p_out_tile->tex_id = this->tex_id;
             p_out_tile->color = { 240, 240, 240, 255 };
         }
     };
@@ -144,9 +149,30 @@ int main(int argc, char* args[])
     }
 
     {
-        hardrock::Renderer renderer(SCREEN_WIDTH, SCREEN_HEIGHT, resource_manager);
+        auto up_vert_shader_data = std::move(resource_manager.LoadResource(hardrock::FnvHash("test.vert")));
+        assert(up_vert_shader_data.get() != nullptr);
+        auto up_frag_shader_data = std::move(resource_manager.LoadResource(hardrock::FnvHash("test.frag")));
+        assert(up_frag_shader_data.get() != nullptr);
+        hardrock::Renderer renderer(SCREEN_WIDTH, SCREEN_HEIGHT, &up_vert_shader_data->at(0), up_vert_shader_data->size(), &up_frag_shader_data->at(0), up_frag_shader_data->size());
         assert(renderer.Valid());
-        hardrock::SpriteModel sprite_modle({128, 128}, {0, 0, 128, 128}, {0.5, 0.5});
+        std::array<std::uint32_t, 4> tex_res_id_list =
+        {
+            hardrock::FnvHash("self_l.webp"),
+            hardrock::FnvHash("self_m.webp"),
+            hardrock::FnvHash("self_r.webp"),
+            hardrock::FnvHash("bullet_0.webp"),
+        };
+        std::sort(tex_res_id_list.begin(), tex_res_id_list.end());
+        auto up_tex_res_bundle = resource_manager.LoadResourceBatch(&tex_res_id_list[0], tex_res_id_list.size());
+        assert(up_tex_res_bundle.get());
+        int r;
+        auto up_atlas_renderer = renderer.GetTextureAtlasRender(*up_tex_res_bundle, 16, 16, 16, r);
+        assert(up_atlas_renderer.get());
+        auto tex_self_m_find_iter = std::lower_bound(tex_res_id_list.begin(), tex_res_id_list.end(), hardrock::FnvHash("self_m.webp"));
+        assert(*tex_self_m_find_iter == hardrock::FnvHash("self_m.webp"));
+        auto tex_self_m_id = static_cast<hardrock::Scene::IndexType>(tex_self_m_find_iter - tex_res_id_list.begin());
+        
+        hardrock::SpriteModel sprite_model({128, 128}, {0.5, 0.5}, tex_self_m_id);
 
         hardrock::Scene scene;
         auto bg_layer_idx = scene.LayerAdd();
@@ -231,12 +257,12 @@ int main(int argc, char* args[])
                     s.radius -= double_pi;
                 glm::vec2 norm;
                 hardrock::FastSinCos(s.radius, &norm.y, &norm.x);
-                sprite_modle.SetTileWithPosScaleDir(s.pos, {1, 1}, norm, &scene.TileAt(s.tile_idx));
+                sprite_model.SetTileWithPosScaleDir(s.pos, {1, 1}, norm, &scene.TileAt(s.tile_idx));
             }
 
             glClearColor(0.2f, 0.0f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
-            scene.Render(&renderer);
+            up_atlas_renderer->Render(scene.GetTileSequence());
             glFlush();
 
             SDL_GL_SwapWindow(p_window);
