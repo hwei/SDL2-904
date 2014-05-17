@@ -150,11 +150,11 @@ int main(int argc, char* args[])
 
     {
         auto up_vert_shader_data = std::move(resource_manager.LoadResource(hardrock::FnvHash("test.vert")));
-        assert(up_vert_shader_data.get() != nullptr);
+        assert(up_vert_shader_data);
         auto up_frag_shader_data = std::move(resource_manager.LoadResource(hardrock::FnvHash("test.frag")));
-        assert(up_frag_shader_data.get() != nullptr);
-        hardrock::Renderer renderer(SCREEN_WIDTH, SCREEN_HEIGHT, &up_vert_shader_data->at(0), up_vert_shader_data->size(), &up_frag_shader_data->at(0), up_frag_shader_data->size());
-        assert(renderer.Valid());
+        assert(up_frag_shader_data);
+        auto sp_render_device = hardrock::RenderDevice::Create(SCREEN_WIDTH, SCREEN_HEIGHT, &up_vert_shader_data->at(0), up_vert_shader_data->size(), &up_frag_shader_data->at(0), up_frag_shader_data->size());
+        assert(sp_render_device);
         std::array<std::uint32_t, 4> tex_res_id_list =
         {
             hardrock::FnvHash("self_l.webp"),
@@ -164,15 +164,13 @@ int main(int argc, char* args[])
         };
         std::sort(tex_res_id_list.begin(), tex_res_id_list.end());
         auto up_tex_res_bundle = resource_manager.LoadResourceBatch(&tex_res_id_list[0], tex_res_id_list.size());
-        assert(up_tex_res_bundle.get());
+        assert(up_tex_res_bundle);
         int r;
-        auto up_atlas_renderer = renderer.GetTextureAtlasRender(*up_tex_res_bundle, 16, 16, 16, r);
-        assert(up_atlas_renderer.get());
+        auto up_atlas_renderer = sp_render_device->CreateTextureAtlasRender(*up_tex_res_bundle, 16, 16, 16, r);
+        assert(up_atlas_renderer);
         auto tex_self_m_find_iter = std::lower_bound(tex_res_id_list.begin(), tex_res_id_list.end(), hardrock::FnvHash("self_m.webp"));
         assert(*tex_self_m_find_iter == hardrock::FnvHash("self_m.webp"));
-        auto tex_self_m_id = static_cast<hardrock::Scene::IndexType>(tex_self_m_find_iter - tex_res_id_list.begin());
-        
-        hardrock::SpriteModel sprite_model({128, 128}, {0.5, 0.5}, tex_self_m_id);
+        hardrock::SpriteModel sprite_model({128, 128}, {0.5, 0.5}, static_cast<hardrock::Scene::IndexType>(tex_self_m_find_iter - tex_res_id_list.begin()));
 
         hardrock::Scene scene;
         auto bg_layer_idx = scene.LayerAdd();

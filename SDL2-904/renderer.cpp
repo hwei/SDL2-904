@@ -16,21 +16,21 @@
 
 namespace hardrock
 {
-    Renderer::TextureAtlasRender::TextureAtlasRender(Renderer* p_render)
+    RenderDevice::TextureAtlasRender::TextureAtlasRender(const std::weak_ptr<RenderDevice>& wp_render_device)
     : h_textures(1)
-    , p_render(p_render)
+    , wp_render_device(wp_render_device)
     , vertex_buffer(MAX_TILE_COUNT * 4)
     {
         this->tex = this->h_textures.get(0);
     }
     
-    std::unique_ptr<Renderer::TextureAtlasRender> Renderer::TextureAtlasRender::Create(Renderer* p_render, const IResourceDataSet& data_set, std::uint16_t unit_length, std::uint8_t width, std::uint8_t height, int& out_error_code)
+    std::unique_ptr<RenderDevice::TextureAtlasRender> RenderDevice::TextureAtlasRender::Create(const std::weak_ptr<RenderDevice>& wp_render_device, const IResourceDataSet& data_set, std::uint16_t unit_length, std::uint8_t width, std::uint8_t height, int& out_error_code)
     {
         assert((width & (width - 1)) == 0);
         assert((height & (height - 1)) == 0);
         assert(width <= 128 && height <= 128);
         int r;
-        std::unique_ptr<TextureAtlasRender> up_render(new TextureAtlasRender(p_render));
+        std::unique_ptr<TextureAtlasRender> up_render(new TextureAtlasRender(wp_render_device));
         auto data_count = data_set.Count();
         up_render->rect_list.resize(data_count);
         std::vector<TexturePackInput> pack_input(data_count);
@@ -120,18 +120,23 @@ namespace hardrock
         return up_render;
     }
     
-    int Renderer::TextureAtlasRender::Render(std::unique_ptr<ITileSequence>&& tile_sequence)
+    int RenderDevice::TextureAtlasRender::Render(std::unique_ptr<ITileSequence>&& tile_sequence)
     {
         if (tile_sequence->Count() > MAX_TILE_COUNT)
             return 1;
         
+        auto sp_render_device = this->wp_render_device.lock();
+        assert(sp_render_device);
+        
         Tile tile;
         std::size_t tile_count = 0;
         TileVertex* p = &this->vertex_buffer[0];
-        const float xm = 2.0f / this->p_render->screen_width;
-        const float ym = -2.0f / this->p_render->screen_height;
-        const float xa = -1.0f - 0.5f / this->p_render->screen_width;
-        const float ya = 1.0f + 0.5f / this->p_render->screen_height;
+        const float screen_width = sp_render_device->screen_width;
+        const float screen_height = sp_render_device->screen_height;
+        const float xm = 2.0f / screen_width;
+        const float ym = -2.0f / screen_height;
+        const float xa = -1.0f - 0.5f / screen_width;
+        const float ya = 1.0f + 0.5f / screen_height;
         while (tile_sequence->Next(tile))
         {
             TileVertex* pv0 = p + (tile_count << 2);
@@ -165,31 +170,44 @@ namespace hardrock
                 break;
         }
         
-        return this->p_render->render(p, tile_count, this->tex);
+        return sp_render_device->render(p, tile_count, this->tex);
     }
     
-    Renderer::Renderer(int screen_width, int screen_height, const std::uint8_t* p_vert_shader_data, std::size_t vert_shader_data_size, const std::uint8_t* p_frag_shader_data, std::size_t frag_shader_data_size)
+    RenderDevice::RenderDevice(int screen_width, int screen_height)
     : screen_width(screen_width)
     , screen_height(screen_height)
-    , b_valid(false)
     , h_vertex_arrays(1)
     , h_buffers(2)
     {
-        static GLushort elements[] = {
+        this->vao = this->h_vertex_arrays.get(0);
+        this->vbo = this->h_buffers.get(0);
+        this->ebo = this->h_buffers.get(1);
+    }
+    
+    std::shared_ptr<RenderDevice> RenderDevice::Create(int screen_width, int screen_height, const std::uint8_t* p_vert_shader_data, std::size_t vert_shader_data_size, const std::uint8_t* p_frag_shader_data, std::size_t frag_shader_data_size)
+    {
+        static GLushort elements[] =
+        {
             0, 1, 2,
             2, 3, 0,
         };
-
+        
+        auto sp_render_device = std::shared_ptr<RenderDevice>(new RenderDevice(screen_width, screen_height));
+        
         int r;
         GLenum error;
         do
         {
             GlHandle<OpGlShader> h_vertex_shader(GL_VERTEX_SHADER);
             {
-                const GLchar* vertex_shader_data_list[1];
-                vertex_shader_data_list[0] = reinterpret_cast<const GLchar*>(p_vert_shader_data);
-                GLint vertex_shader_size_list[1];
-                vertex_shader_size_list[0] = static_cast<GLint>(vert_shader_data_size);
+                const GLchar* vertex_shader_data_list[1] =
+                {
+                    reinterpret_cast<const GLchar*>(p_vert_shader_data)
+                };
+                GLint vertex_shader_size_list[1] =
+                {
+                    static_cast<GLint>(vert_shader_data_size)
+                };
                 glShaderSource(h_vertex_shader, 1, vertex_shader_data_list, vertex_shader_size_list);
                 glCompileShader(h_vertex_shader);
                 glGetShaderiv(h_vertex_shader, GL_COMPILE_STATUS, &r);
@@ -201,13 +219,17 @@ namespace hardrock
                     break;
                 }
             }
-
+            
             GlHandle<OpGlShader> h_fragment_shader(GL_FRAGMENT_SHADER);
             {
-                const GLchar* frag_shader_data_list[1];
-                frag_shader_data_list[0] = reinterpret_cast<const GLchar*>(p_frag_shader_data);
-                GLint frag_shader_size_list[1];
-                frag_shader_size_list[0] = static_cast<GLint>(frag_shader_data_size);
+                const GLchar* frag_shader_data_list[1] =
+                {
+                    reinterpret_cast<const GLchar*>(p_frag_shader_data)
+                };
+                GLint frag_shader_size_list[1] =
+                {
+                    static_cast<GLint>(frag_shader_data_size)
+                };
                 glShaderSource(h_fragment_shader, 1, frag_shader_data_list, frag_shader_size_list);
                 glCompileShader(h_fragment_shader);
                 glGetShaderiv(h_fragment_shader, GL_COMPILE_STATUS, &r);
@@ -219,16 +241,16 @@ namespace hardrock
                     break;
                 }
             }
-
-            glAttachShader(this->h_program, h_vertex_shader);
-            glAttachShader(this->h_program, h_fragment_shader);
-            glLinkProgram(this->h_program);
-
-            this->vbo = this->h_buffers.get(0);
-            glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
+            
+            glAttachShader(sp_render_device->h_program, h_vertex_shader);
+            glAttachShader(sp_render_device->h_program, h_fragment_shader);
+            glLinkProgram(sp_render_device->h_program);
+            
+            
+            glBindBuffer(GL_ARRAY_BUFFER, sp_render_device->vbo);
             glBufferData(GL_ARRAY_BUFFER, sizeof(TileVertex) * 4 * MAX_TILE_COUNT, nullptr, GL_STREAM_DRAW);
-            this->ebo = this->h_buffers.get(1);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
+            
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sp_render_device->ebo);
             {
                 std::vector<GLushort> index_data(MAX_TILE_COUNT * 6);
                 GLushort* p_index_data = &index_data[0];
@@ -244,46 +266,46 @@ namespace hardrock
                 }
                 glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort) * MAX_TILE_COUNT * 6, p_index_data, GL_STATIC_DRAW);
             }
-
-            this->vao = this->h_vertex_arrays.get(0);
-            glBindVertexArray(this->vao);
-            GLint pos_attrib = glGetAttribLocation(this->h_program, "position");
+            
+            glBindVertexArray(sp_render_device->vao);
+            GLint pos_attrib = glGetAttribLocation(sp_render_device->h_program, "position");
             glEnableVertexAttribArray(pos_attrib);
             glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(TileVertex), (void*)offsetof(TileVertex, pos));
-            GLint tex_attrib = glGetAttribLocation(this->h_program, "texcoord");
+            GLint tex_attrib = glGetAttribLocation(sp_render_device->h_program, "texcoord");
             glEnableVertexAttribArray(tex_attrib);
             glVertexAttribPointer(tex_attrib, 2, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(TileVertex), (void*)offsetof(TileVertex, tex));
-            GLint color_attrib = glGetAttribLocation(this->h_program, "color");
+            GLint color_attrib = glGetAttribLocation(sp_render_device->h_program, "color");
             glEnableVertexAttribArray(color_attrib);
             glVertexAttribPointer(color_attrib, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(TileVertex), (void*)offsetof(TileVertex, color));
-
-            this->shader_sampler = glGetUniformLocation(this->h_program, "TexSampler");
-
+            sp_render_device->shader_sampler = glGetUniformLocation(sp_render_device->h_program, "TexSampler");
             glBindVertexArray(0);
-
+            
             error = glGetError();
             if (error != GL_NO_ERROR)
             {
                 std::cerr << "OpenGL error: " << error << std::endl;
-            }
-            else
-            {
-                this->b_valid = true;
+                return nullptr;
             }
         } while (false);
         error = glGetError();
         if (error != GL_NO_ERROR)
         {
             std::cerr << "OpenGL error: " << error << std::endl;
+            return nullptr;
+        }
+        else
+        {
+            sp_render_device->wp_self = sp_render_device;
+            return sp_render_device;
         }
     }
 
-    std::unique_ptr<ITileRender> Renderer::GetTextureAtlasRender(const IResourceDataSet& data_set, std::uint16_t unit_length, std::uint8_t width, std::uint8_t height, int& out_error_code)
+    std::unique_ptr<ITileRender> RenderDevice::CreateTextureAtlasRender(const IResourceDataSet& data_set, std::uint16_t unit_length, std::uint8_t width, std::uint8_t height, int& out_error_code)
     {
-        return std::move(TextureAtlasRender::Create(this, data_set, unit_length, width, height, out_error_code));
+        return std::move(TextureAtlasRender::Create(this->wp_self, data_set, unit_length, width, height, out_error_code));
     }
     
-    int Renderer::render(const TileVertex* p_vertex_buffer, std::size_t tile_count, GLuint tex_id)
+    int RenderDevice::render(const TileVertex* p_vertex_buffer, std::size_t tile_count, GLuint tex_id)
     {
         GLenum error;
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
