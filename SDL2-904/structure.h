@@ -38,6 +38,21 @@ namespace hardrock
         IndexType Next(IndexType idx_curr) const;
         IndexType Prev(IndexType idx_curr) const;
     };
+    
+    class SimpleMemoryAllocator
+    {
+        struct FreeSpace
+        {
+            std::size_t pos;
+            std::size_t size;
+        };
+        std::vector<FreeSpace> free_list;
+    public:
+        SimpleMemoryAllocator(std::size_t size);
+        int Allocate(std::size_t size, std::size_t& out_pos);
+        int Free(std::size_t pos, std::size_t size);
+        void DebugPrint() const;
+    };
 }
 
 #endif /* defined(__SDL2_904__structure__) */

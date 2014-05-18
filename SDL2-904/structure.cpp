@@ -93,4 +93,123 @@ namespace hardrock
         return p_curr->prev;
     }
 
+    SimpleMemoryAllocator::SimpleMemoryAllocator(std::size_t size)
+    {
+        free_list.push_back({0, size});
+    }
+    
+    int SimpleMemoryAllocator::Allocate(std::size_t size, std::size_t& out_pos)
+    {
+        auto cmp = [](const FreeSpace& free_space, std::size_t s)
+        {
+            return free_space.size < s;
+        };
+        auto iter = std::lower_bound(this->free_list.begin(), this->free_list.end(), size, cmp);
+        if (iter == this->free_list.end())
+            return 1;
+        out_pos = iter->pos;
+        if (iter->size == size)
+        {
+            this->free_list.erase(iter);
+        }
+        else
+        {
+            iter->pos += size;
+            iter->size -= size;
+        }
+        return 0;
+    }
+    
+    int SimpleMemoryAllocator::Free(std::size_t pos, std::size_t size)
+    {
+        if (this->free_list.size() == 0)
+        {
+            this->free_list.push_back({pos, size});
+            return 0;
+        }
+        auto cmp = [](std::size_t p, const FreeSpace& free_space)
+        {
+            return p < free_space.pos;
+        };
+        auto iter = std::upper_bound(this->free_list.begin(), this->free_list.end(), pos, cmp);
+        if (iter == this->free_list.begin())
+        {
+            // free block is at the front of the list
+            std::size_t end = pos + size;
+            if (end < iter->pos)
+            {
+                this->free_list.insert(iter, {pos, size});
+                return 0;
+            }
+            else if (end == iter->pos)
+            {
+                iter->pos = pos;
+                iter->size += size;
+                return 0;
+            }
+            else
+            {
+                return 1;
+            }
+        }
+        if (iter == this->free_list.end())
+        {
+            // free block is at the end of the list
+            --iter;
+            std::size_t free_end = iter->pos + iter->size;
+            if (free_end < pos)
+            {
+                this->free_list.push_back({pos, size});
+                return 0;
+            }
+            else if (free_end == pos)
+            {
+                iter->size += size;
+                return 0;
+            }
+            else
+            {
+                return 1;
+            }
+        }
+        {
+            std::size_t end = pos + size;
+            if (end > iter->pos)
+                return 1;
+            auto prev_iter = iter - 1;
+            std::size_t free_end = prev_iter->pos + prev_iter->size;
+            if (pos < free_end)
+                return 1;
+            if (end == iter->pos && pos == free_end)
+            {
+                prev_iter->size += size + iter->size;
+                this->free_list.erase(iter);
+                return 0;
+            }
+            if (end == iter->pos)
+            {
+                iter->pos = pos;
+                iter->size += size;
+                return 0;
+            }
+            if (pos == free_end)
+            {
+                prev_iter->size += size;
+                return 0;
+            }
+            {
+                this->free_list.insert(iter, {pos, size});
+                return 0;
+            }
+        }
+    }
+    
+    void SimpleMemoryAllocator::DebugPrint() const
+    {
+        printf("SimpleMemoryPool\n");
+        for (auto free_space : this->free_list)
+        {
+            printf("%lu %lu\n", free_space.pos, free_space.size);
+        }
+    }
 }

@@ -28,14 +28,8 @@ namespace hardrock
     struct ITileSequence
     {
         virtual ~ITileSequence() { }
-        virtual std::size_t Count() const = 0;
-        virtual bool Next(Tile& out_tile) = 0;
-    };
-
-    struct ITileRender
-    {
-        virtual ~ITileRender() { }
-        virtual int Render(std::unique_ptr<ITileSequence>&& tile_sequence) = 0;
+        virtual bool HasNext() const = 0;
+        virtual const Tile& Next() = 0;
     };
 }
 

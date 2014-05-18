@@ -17,66 +17,34 @@
 
 namespace hardrock
 {
-    typedef std::uint16_t ObjId;
-    
-    struct SceneModify
-    {
-        std::vector<ObjId> layer_add_list;
-        std::vector<ObjId> layer_del_list;
-        std::vector<ObjId> layer_change_list;
-        std::vector<glm::dvec3> layer_change_data;
-        struct TileAndLayer
-        {
-            ObjId tile_id;
-            ObjId layer_id;
-        };
-        std::vector<TileAndLayer> tile_add_or_move_list;
-        std::vector<ObjId> tile_del_list;
-        std::vector<ObjId> tile_change_list;
-        std::vector<Tile> tile_change_data;
-    };
-
-    class Scene
+    class TileSet
     {
     public:
         typedef CircleLinkedListPool::IndexType IndexType;
-        struct Layer
-        {
-            glm::vec3 pos;
-        };
     private:
-        struct LayerNode
-        {
-            Layer layer;
-            IndexType tile_list_head;
-            IndexType padding;
-        };
-        static const size_t MAX_TILE_COUNT = 1000;
-        static const size_t MAX_LAYER_COUNT = 20;
-        static const IndexType FREE_TILE_LIST_HEAD = 0;
-        static const IndexType FREE_LAYER_LIST_HEAD = 0;
-        static const IndexType LAYER_LIST_HEAD = 1;
-
+        static const IndexType USED_TILE_LIST_HEAD = 0;
+        static const IndexType FREE_TILE_LIST_HEAD = 1;
+        const std::size_t capacity;
         std::vector<Tile> tile_data;
         CircleLinkedListPool tile_list_pool;
-        size_t tile_count;
-        
-        std::vector<LayerNode> layer_data;
-        CircleLinkedListPool layer_list_pool;
-
-        std::vector<const LayerNode*> sorted_layers; // sorted by layer z
-        bool layers_need_sort;
+        std::size_t tile_count;
     public:
-        Scene();
-        IndexType LayerAdd();
-        int LayerDelete(IndexType layer_idx);
-        Layer& LayerAt(IndexType layer_idx);
-        IndexType TileAdd(IndexType layer_idx);
-        int TileDelete(IndexType tile_idx);
+        TileSet(std::size_t capacity);
+        IndexType TileAdd(IndexType insert_after_idx = USED_TILE_LIST_HEAD);
+        int TileRemove(IndexType tile_idx);
         Tile& TileAt(IndexType layer_idx);
-        std::unique_ptr<ITileSequence> GetTileSequence();
+        class TileSequence : public ITileSequence
+        {
+            const std::vector<Tile>* const p_tile_data;
+            const CircleLinkedListPool* const p_tile_list_pool;
+            IndexType next_idx;
+        public:
+            TileSequence(const std::vector<Tile>* p_tile_data, const CircleLinkedListPool* p_tile_list_pool);
+            bool HasNext() const override;
+            const Tile& Next() override;
+        };
+        TileSequence GetTileSequence() const;
     };
-
 }
 
 #endif

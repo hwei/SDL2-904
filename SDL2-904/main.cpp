@@ -153,8 +153,8 @@ int main(int argc, char* args[])
         assert(up_vert_shader_data);
         auto up_frag_shader_data = std::move(resource_manager.LoadResource(hardrock::FnvHash("test.frag")));
         assert(up_frag_shader_data);
-        auto sp_render_device = hardrock::RenderDevice::Create(SCREEN_WIDTH, SCREEN_HEIGHT, &up_vert_shader_data->at(0), up_vert_shader_data->size(), &up_frag_shader_data->at(0), up_frag_shader_data->size());
-        assert(sp_render_device);
+        auto up_render_device = hardrock::RenderDevice::Create(SCREEN_WIDTH, SCREEN_HEIGHT, &up_vert_shader_data->at(0), up_vert_shader_data->size(), &up_frag_shader_data->at(0), up_frag_shader_data->size());
+        assert(up_render_device);
         std::array<std::uint32_t, 4> tex_res_id_list =
         {
             hardrock::FnvHash("self_l.webp"),
@@ -166,15 +166,23 @@ int main(int argc, char* args[])
         auto up_tex_res_bundle = resource_manager.LoadResourceBatch(&tex_res_id_list[0], tex_res_id_list.size());
         assert(up_tex_res_bundle);
         int r;
-        auto up_atlas_renderer = sp_render_device->CreateTextureAtlasRender(*up_tex_res_bundle, 16, 16, 16, r);
-        assert(up_atlas_renderer);
+        hardrock::RenderDevice::AtlasIdType atlas_id;
+        r = up_render_device->CreateTextureAtlas(*up_tex_res_bundle, 16, 16, 16, atlas_id);
+        assert(r == 0);
+        hardrock::RenderDevice::BatchIdType batch_id;
+        r = up_render_device->CreateBatch(64, atlas_id, batch_id);
+        std::array<hardrock::RenderDevice::RenderQuest, 1> render_quest_list =
+        {
+            { nullptr, {}, {}, batch_id },
+        };
+        
+        assert(r == 0);
         auto tex_self_m_find_iter = std::lower_bound(tex_res_id_list.begin(), tex_res_id_list.end(), hardrock::FnvHash("self_m.webp"));
         assert(*tex_self_m_find_iter == hardrock::FnvHash("self_m.webp"));
-        hardrock::SpriteModel sprite_model({128, 128}, {0.5, 0.5}, static_cast<hardrock::Scene::IndexType>(tex_self_m_find_iter - tex_res_id_list.begin()));
-
-        hardrock::Scene scene;
-        auto bg_layer_idx = scene.LayerAdd();
-        scene.LayerAt(bg_layer_idx) = {{0, 0, 0}};
+        hardrock::SpriteModel sprite_model({128, 128}, {0.5, 0.5}, static_cast<hardrock::TileSet::IndexType>(tex_self_m_find_iter - tex_res_id_list.begin()));
+        
+        hardrock::TileSet tile_set(64);
+        
         const float pi = glm::pi<float>();
         const float double_pi = pi * 2.0f;
         const float half_pi = glm::half_pi<float>();
@@ -183,24 +191,23 @@ int main(int argc, char* args[])
         {
             glm::vec2 pos;
             float radius;
-            hardrock::Scene::IndexType tile_idx;
-            hardrock::Scene::IndexType padding;
+            hardrock::TileSet::IndexType tile_idx;
+            hardrock::TileSet::IndexType padding;
         } sprite_data[sprite_count];
         for (int i = 0; i < sprite_count; ++i)
         {
-            auto tile_idx = scene.TileAdd(bg_layer_idx);
+            auto tile_idx = tile_set.TileAdd();
             int x = i % 4;
             int y = i / 4;
             sprite_data[i] = { { 64 + x * 128, 64 + y * 128 }, (i % 4) * half_pi, tile_idx, 0 };
         }
-        class ControlLayer : public hardrock::IControlTarget
+        class ControlTranslate : public hardrock::IControlTarget
         {
-            hardrock::Scene* p_scene;
-            hardrock::Scene::IndexType layer_idx;
+            glm::vec2* p_translate;
             float x, y;
         public:
-            ControlLayer(hardrock::Scene* p_scene, hardrock::Scene::IndexType layer_idx)
-            : p_scene(p_scene), layer_idx(layer_idx)
+            ControlTranslate(glm::vec2* p_translate)
+            : p_translate(p_translate)
             , x(0), y(0)
             {
             }
@@ -208,10 +215,11 @@ int main(int argc, char* args[])
             {
                 this->x += x;
                 this->y += y;
-                p_scene->LayerAt(layer_idx).pos = {this->x, this->y, 0};
+                p_translate->x = this->x;
+                p_translate->y = this->y;
             }
         };
-        ControlLayer control_layer(&scene, bg_layer_idx);
+        ControlTranslate control_translate(&render_quest_list[0].translate);
         hardrock::KeyboardControl keyboard_control;
 
         typedef decltype(SDL_GetTicks()) tick_t;
@@ -245,7 +253,7 @@ int main(int argc, char* args[])
                 break;
             }
 
-            keyboard_control.Control(&control_layer);
+            keyboard_control.Control(&control_translate);
 
             for (int i = 0; i < sprite_count; ++i)
             {
@@ -255,12 +263,16 @@ int main(int argc, char* args[])
                     s.radius -= double_pi;
                 glm::vec2 norm;
                 hardrock::FastSinCos(s.radius, &norm.y, &norm.x);
-                sprite_model.SetTileWithPosScaleDir(s.pos, {1, 1}, norm, &scene.TileAt(s.tile_idx));
+                sprite_model.SetTileWithPosScaleDir(s.pos, {1, 1}, norm, &tile_set.TileAt(s.tile_idx));
             }
 
             glClearColor(0.2f, 0.0f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
-            up_atlas_renderer->Render(scene.GetTileSequence());
+            {
+                auto tile_seq = tile_set.GetTileSequence();
+                render_quest_list[0].p_tile_seq = &tile_seq;
+                up_render_device->Render(render_quest_list.begin(), render_quest_list.end());
+            }
             glFlush();
 
             SDL_GL_SwapWindow(p_window);
