@@ -32,7 +32,7 @@ namespace hardrock
         TileSet(std::size_t capacity);
         IndexType TileAdd(IndexType insert_after_idx = USED_TILE_LIST_HEAD);
         int TileRemove(IndexType tile_idx);
-        Tile& TileAt(IndexType layer_idx);
+        Tile& TileAt(IndexType tile_idx);
         class TileSequence : public ITileSequence
         {
             const std::vector<Tile>* const p_tile_data;

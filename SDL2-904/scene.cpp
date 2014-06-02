@@ -16,8 +16,9 @@ namespace hardrock
     : capacity(capacity)
     , tile_list_pool(capacity + 2)
     , tile_data(capacity + 2)
+    , tile_count(0)
     {
-        
+        this->tile_list_pool.MoveTo(USED_TILE_LIST_HEAD, USED_TILE_LIST_HEAD);
     }
     
     TileSet::IndexType TileSet::TileAdd(IndexType insert_after_idx)

@@ -44,10 +44,10 @@ namespace hardrock
 {
     class SpriteModel
     {
-        const glm::vec2 size;
-        const glm::vec2 anchor;
-        const std::uint16_t tex_id;
-        const std::uint16_t padding;
+        glm::vec2 size;
+        glm::vec2 anchor;
+        std::uint16_t tex_id;
+        std::uint16_t padding;
     public:
         SpriteModel(const glm::vec2& size, const glm::vec2& anchor, std::uint16_t tex_id)
         : size(size)
@@ -67,8 +67,9 @@ namespace hardrock
         }
         void SetTileWithPos(const glm::vec2& pos, Tile* p_out_tile)
         {
-            p_out_tile->transform = glm::mat2();
-            p_out_tile->translate = pos - this->anchor;
+            const glm::mat2 transform(this->size.x, 0, 0, this->size.y);
+            p_out_tile->transform = transform;
+            p_out_tile->translate = pos - transform * this->anchor;
             p_out_tile->tex_id = this->tex_id;
             p_out_tile->color = { 240, 240, 240, 255 };
         }
@@ -116,6 +117,7 @@ namespace hardrock
                 p_target->Move(static_cast<float>(x), static_cast<float>(y));
         }
     };
+
 }
 
 int main(int argc, char* args[])
@@ -171,15 +173,22 @@ int main(int argc, char* args[])
         assert(r == 0);
         hardrock::RenderDevice::BatchIdType batch_id;
         r = up_render_device->CreateBatch(64, atlas_id, batch_id);
-        std::array<hardrock::RenderDevice::RenderQuest, 1> render_quest_list =
-        {
-            { nullptr, {}, {}, batch_id },
-        };
+        assert(r == 0);
+        hardrock::RenderDevice::BatchIdType player_batch_id;
+        r = up_render_device->CreateBatch(64, atlas_id, player_batch_id);
+        assert(r == 0);
+        std::array<hardrock::RenderDevice::RenderQuest, 2> render_quest_list
+        {{
+            { nullptr, {}, {}, batch_id, {} },
+            { nullptr, {}, {}, player_batch_id, {} },
+        }};
         
         assert(r == 0);
         auto tex_self_m_find_iter = std::lower_bound(tex_res_id_list.begin(), tex_res_id_list.end(), hardrock::FnvHash("self_m.webp"));
         assert(*tex_self_m_find_iter == hardrock::FnvHash("self_m.webp"));
-        hardrock::SpriteModel sprite_model({128, 128}, {0.5, 0.5}, static_cast<hardrock::TileSet::IndexType>(tex_self_m_find_iter - tex_res_id_list.begin()));
+        auto const self_m_tex_id = static_cast<hardrock::TileSet::IndexType>(tex_self_m_find_iter - tex_res_id_list.begin());
+        hardrock::SpriteModel sprite_model({128, 128}, {0.5, 0.5}, self_m_tex_id);
+        hardrock::SpriteModel player_model({64, 64}, {0.5, 0.5}, self_m_tex_id);
         
         hardrock::TileSet tile_set(64);
         
@@ -196,19 +205,29 @@ int main(int argc, char* args[])
         } sprite_data[sprite_count];
         for (int i = 0; i < sprite_count; ++i)
         {
-            auto tile_idx = tile_set.TileAdd();
+            auto const tile_idx = tile_set.TileAdd();
             int x = i % 4;
             int y = i / 4;
-            sprite_data[i] = { { 64 + x * 128, 64 + y * 128 }, (i % 4) * half_pi, tile_idx, 0 };
+            sprite_data[i] = { { x * 128, y * 128 }, (i % 4) * half_pi, tile_idx, 0 };
         }
+        struct PlayerData
+        {
+            glm::vec2 pos;
+            hardrock::TileSet::IndexType tile_idx;
+            hardrock::TileSet::IndexType padding;
+        } player_data;
+        hardrock::TileSet player_tile_set(8);
+        player_data.tile_idx = player_tile_set.TileAdd();
+        player_model.SetTileWithPos({}, &player_tile_set.TileAt(player_data.tile_idx));
+        
         class ControlTranslate : public hardrock::IControlTarget
         {
             glm::vec2* p_translate;
             float x, y;
         public:
-            ControlTranslate(glm::vec2* p_translate)
+            ControlTranslate(glm::vec2* p_translate, float x = 0, float y = 0)
             : p_translate(p_translate)
-            , x(0), y(0)
+            , x(x), y(y)
             {
             }
             void Move(float x, float y) override
@@ -219,7 +238,7 @@ int main(int argc, char* args[])
                 p_translate->y = this->y;
             }
         };
-        ControlTranslate control_translate(&render_quest_list[0].translate);
+        ControlTranslate control_translate(&player_data.pos, SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.8);
         hardrock::KeyboardControl keyboard_control;
 
         typedef decltype(SDL_GetTicks()) tick_t;
@@ -264,6 +283,12 @@ int main(int argc, char* args[])
                 glm::vec2 norm;
                 hardrock::FastSinCos(s.radius, &norm.y, &norm.x);
                 sprite_model.SetTileWithPosScaleDir(s.pos, {1, 1}, norm, &tile_set.TileAt(s.tile_idx));
+                hardrock::Tile tile0;
+                sprite_model.SetTileWithPos(s.pos, &tile0);
+                hardrock::Tile tile1;
+                sprite_model.SetTileWithPosScaleDir(s.pos, {1, 1}, {1, 0}, &tile1);
+                assert(tile0.transform == tile1.transform);
+                assert(tile0.translate == tile1.translate);
             }
 
             glClearColor(0.2f, 0.0f, 0.2f, 1.0f);
@@ -271,6 +296,9 @@ int main(int argc, char* args[])
             {
                 auto tile_seq = tile_set.GetTileSequence();
                 render_quest_list[0].p_tile_seq = &tile_seq;
+                auto player_tile_seq = player_tile_set.GetTileSequence();
+                render_quest_list[1].p_tile_seq = &player_tile_seq;
+                render_quest_list[1].translate = player_data.pos;
                 up_render_device->Render(render_quest_list.begin(), render_quest_list.end());
             }
             glFlush();

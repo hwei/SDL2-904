@@ -291,7 +291,7 @@ namespace hardrock
         int r = this->buffer_allocator.Allocate(capacity, offset);
         if (r != 0)
             return 1;
-        this->tile_batch_list.push_back({ offset, capacity, 0, atlas_id, false });
+        this->tile_batch_list.push_back({ offset, capacity, 0, atlas_id });
         out_batch_id = this->tile_batch_list.size() - 1;
         return 0;
     }
@@ -385,7 +385,7 @@ namespace hardrock
         const auto batch = this->tile_batch_list[batch_id];
         const auto p_texture_atlas = this->up_texture_atlas_list[batch.atlas_id].get();
         glBindTexture(GL_TEXTURE_2D, p_texture_atlas->GetGlTexureId());
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(6 * batch.count), GL_UNSIGNED_SHORT, reinterpret_cast<const GLvoid *>(4 * batch.offset));
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(6 * batch.count), GL_UNSIGNED_SHORT, reinterpret_cast<const GLvoid *>(6 * batch.offset * sizeof(GLushort)));
         error = glGetError();
         if (error != GL_NO_ERROR)
         {
