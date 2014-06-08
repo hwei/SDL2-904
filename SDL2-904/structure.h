@@ -53,6 +53,46 @@ namespace hardrock
         int Free(std::size_t pos, std::size_t size);
         void DebugPrint() const;
     };
+
+
+    class ObjRef
+    {
+    public:
+        struct Deleter
+        {
+            void operator () (ObjRef* p_obj_ref) const
+            {
+                p_obj_ref->ref_data = 0;
+            }
+        };
+        class ModifyHandle
+        {
+            ObjRef* p_obj_ref;
+            ModifyHandle(ObjRef* p_obj_ref);
+        public:
+            ModifyHandle() { }
+            std::uint32_t &RefData() const { return this->p_obj_ref->ref_data; }
+            class Pool
+            {
+                CircleLinkedListPool ref_item_pool;
+                std::vector<ObjRef> ref_item_buffer;
+                static const CircleLinkedListPool::IndexType FREE_LIST_HEAD = 0;
+                static const CircleLinkedListPool::IndexType USED_LIST_HEAD = 1;
+            public:
+                Pool(std::size_t size);
+                std::unique_ptr<ObjRef, Deleter> CreateObjRef(std::uint32_t ref_data, ModifyHandle* p_modify_handle);
+                void Remove(ModifyHandle modify_handle);
+            };
+        };
+        ObjRef();
+        std::uint32_t GetData() const { return this->ref_data; }
+    private:
+        ObjRef(std::uint32_t ref_data);
+        std::uint32_t ref_data;
+    };
+    typedef ObjRef::ModifyHandle::Pool ObjRefPool;
+    typedef std::unique_ptr<ObjRef, ObjRef::Deleter> ObjRefUPtr;
+    
 }
 
 #endif /* defined(__SDL2_904__structure__) */

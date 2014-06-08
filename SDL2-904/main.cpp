@@ -123,6 +123,70 @@ namespace hardrock
         }
     };
 
+    class LineMoveRef
+    {
+        ObjRefUPtr up_obj_ref;
+        LineMoveRef(ObjRefUPtr &&up_obj_ref)
+        : up_obj_ref(std::move(up_obj_ref))
+        {
+        }
+    public:
+        class LineMoveManager
+        {
+            std::vector<glm::vec2> move_vector;
+            std::vector<glm::vec2> position;
+            std::vector<ObjRef::ModifyHandle> modify_handle;
+            std::size_t count;
+        public:
+            LineMoveManager(std::size_t capacity)
+            : move_vector(capacity)
+            , position(capacity)
+            , modify_handle(capacity)
+            , count(1)
+            {
+            }
+            std::size_t Capacity() const { return this->move_vector.size(); }
+            LineMoveRef CreateLineMove(ObjRefPool &obj_ref_pool ,const glm::vec2 &move_vector, const glm::vec2 &position)
+            {
+                const auto next_idx = static_cast<std::uint32_t>(this->count);
+                if (next_idx >= this->Capacity())
+                {
+                    return LineMoveRef(nullptr);
+                }
+                ++this->count;
+                this->move_vector[next_idx] = move_vector;
+                this->position[next_idx] = position;
+                auto up_obj_ref = obj_ref_pool.CreateObjRef(next_idx, &this->modify_handle[next_idx]);
+                assert(up_obj_ref);
+                return LineMoveRef(std::move(up_obj_ref));
+            }
+            void Update(ObjRefPool &obj_ref_pool)
+            {
+                std::size_t new_count = 1;
+                for (auto i = 1; i < this->count; ++i)
+                {
+                    const auto modify_handle = this->modify_handle[i];
+                    auto &idx = modify_handle.RefData();
+                    if (idx != 0)
+                    {
+                        const auto move_vector = this->move_vector[i];
+                        this->position[new_count] = this->position[i] + move_vector;
+                        this->move_vector[new_count] = move_vector;
+                        this->modify_handle[new_count] = modify_handle;
+                        idx = static_cast<std::uint32_t>(new_count);
+                        ++new_count;
+                    }
+                }
+                this->count = new_count;
+            }
+            glm::vec2 GetPos(const LineMoveRef &line_move_ref) const
+            {
+                const auto idx = line_move_ref.up_obj_ref.get()->GetData();
+                return this->position[idx];
+            }
+        };
+    };
+    
 }
 
 int main(int argc, char* args[])
@@ -199,6 +263,7 @@ int main(int argc, char* args[])
         
         hardrock::SpriteModel empty_model({}, {}, 0);
         
+        hardrock::ObjRefPool obj_ref_pool(65000);
         hardrock::TileSet sprite_tile_set(512);
         
         struct PlayerData
@@ -221,9 +286,11 @@ int main(int argc, char* args[])
         const auto player_bullet_tile_head_idx = sprite_tile_set.TileAdd();
         empty_model.SetTileWithPos({}, &sprite_tile_set.TileAt(player_bullet_tile_head_idx));
         
+        hardrock::LineMoveRef::LineMoveManager line_move_manager(128);
+        
         struct PlayerBulletData
         {
-            hardrock::LineMove line_move;
+            hardrock::LineMoveRef line_move_ref;
             hardrock::TileSet::IndexType tile_idx;
             hardrock::TileSet::IndexType padding;
         };
@@ -265,15 +332,17 @@ int main(int argc, char* args[])
                 break;
             }
             
+            line_move_manager.Update(obj_ref_pool);
+            
             for (std::size_t i = 0; i < player_bullet_data.size();)
             {
                 const auto &bullet_data = player_bullet_data[i];
                 const auto bullet_idx = bullet_data.tile_idx;
-                const auto pos = bullet_data.line_move.GetPos(tick_count);
+                const auto pos = line_move_manager.GetPos(bullet_data.line_move_ref);
                 if (pos.y < 0)
                 {
                     sprite_tile_set.TileRemove(bullet_idx);
-                    player_bullet_data[i] = player_bullet_data.back();
+                    player_bullet_data[i] = std::move(player_bullet_data.back());
                     player_bullet_data.pop_back();
                 }
                 else
@@ -289,7 +358,8 @@ int main(int argc, char* args[])
                 player_data.shoot_cool_down = player_data.shoot_cool_down_max;
                 const auto bullet_pos = player_data.pos;
                 const auto tile_idx = sprite_tile_set.TileAdd(player_bullet_tile_head_idx);
-                player_bullet_data.push_back({{{0, -8.0f}, bullet_pos, tick_count}, tile_idx});
+                auto line_move_ref = line_move_manager.CreateLineMove(obj_ref_pool, {0, -8.0f}, bullet_pos);
+                player_bullet_data.push_back({std::move(line_move_ref), tile_idx});
                 bullet_1_model.SetTileWithPos(bullet_pos, &sprite_tile_set.TileAt(tile_idx));
             }
 

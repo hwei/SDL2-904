@@ -212,4 +212,44 @@ namespace hardrock
             printf("%lu %lu\n", free_space.pos, free_space.size);
         }
     }
+    
+    ObjRef::ObjRef()
+    : ref_data(0)
+    {
+    }
+    
+    ObjRef::ObjRef(std::uint32_t ref_data)
+    : ref_data(ref_data)
+    {
+    }
+    
+    ObjRef::ModifyHandle::ModifyHandle(ObjRef* p_obj_ref)
+    : p_obj_ref(p_obj_ref)
+    {
+    }
+    
+    ObjRef::ModifyHandle::Pool::Pool(std::size_t size)
+    : ref_item_pool(size)
+    , ref_item_buffer(size)
+    {
+        this->ref_item_pool.MoveTo(USED_LIST_HEAD, USED_LIST_HEAD);
+    }
+    
+    std::unique_ptr<ObjRef, ObjRef::Deleter> ObjRef::ModifyHandle::Pool::CreateObjRef(std::uint32_t ref_data, ModifyHandle* p_modify_handle)
+    {
+        const auto next_free_idx = this->ref_item_pool.Next(FREE_LIST_HEAD);
+        if (next_free_idx == FREE_LIST_HEAD)
+            return nullptr;
+        this->ref_item_pool.MoveTo(next_free_idx, USED_LIST_HEAD);
+        auto p_ref_item = &this->ref_item_buffer[next_free_idx];
+        p_ref_item->ref_data = ref_data;
+        p_modify_handle->p_obj_ref = p_ref_item;
+        return std::unique_ptr<ObjRef, ObjRef::Deleter>(p_ref_item);
+    }
+    
+    void ObjRef::ModifyHandle::Pool::Remove(ModifyHandle modify_handle)
+    {
+        const auto ref_idx =  modify_handle.p_obj_ref - &this->ref_item_buffer[0];
+        this->ref_item_pool.MoveTo(ref_idx, FREE_LIST_HEAD);
+    }
 }
