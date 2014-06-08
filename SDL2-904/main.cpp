@@ -80,7 +80,7 @@ namespace hardrock
         int left, right, up, down;
         std::uint32_t button_mask;
     public:
-        KeyboardControl() : left(0), right(0), up(0), down(0) { }
+        KeyboardControl() : left(0), right(0), up(0), down(0), button_mask(0) { }
         void KeyStatus(int scan_code, bool pressed)
         {
             int v = pressed ? 1 : 0;
@@ -177,15 +177,12 @@ int main(int argc, char* args[])
         hardrock::RenderDevice::AtlasIdType atlas_id;
         r = up_render_device->CreateTextureAtlas(*up_tex_res_bundle, 16, 16, 16, atlas_id);
         assert(r == 0);
-        hardrock::RenderDevice::BatchIdType batch_id;
-        r = up_render_device->CreateBatch(64, atlas_id, batch_id);
-        assert(r == 0);
+
         hardrock::RenderDevice::BatchIdType sprite_batch_id;
         r = up_render_device->CreateBatch(512, atlas_id, sprite_batch_id);
         assert(r == 0);
         std::array<hardrock::RenderDevice::RenderQuest, 2> render_quest_list
         {{
-            { nullptr, {}, {}, batch_id, {} },
             { nullptr, {}, {}, sprite_batch_id, {} },
         }};
         
@@ -202,37 +199,21 @@ int main(int argc, char* args[])
         
         hardrock::SpriteModel empty_model({}, {}, 0);
         
-        hardrock::TileSet tile_set(64);
-        
-        const float pi = glm::pi<float>();
-        const float double_pi = pi * 2.0f;
-        const float half_pi = glm::half_pi<float>();
-        const size_t sprite_count = 16;
-        struct SpriteData
-        {
-            glm::vec2 pos;
-            float radius;
-            hardrock::TileSet::IndexType tile_idx;
-            hardrock::TileSet::IndexType padding;
-        } sprite_data[sprite_count];
-        for (int i = 0; i < sprite_count; ++i)
-        {
-            auto const tile_idx = tile_set.TileAdd();
-            int x = i % 4;
-            int y = i / 4;
-            sprite_data[i] = { { x * 128, y * 128 }, (i % 4) * half_pi, tile_idx, 0 };
-        }
         hardrock::TileSet sprite_tile_set(512);
         
         struct PlayerData
         {
             glm::vec2 pos;
+            const int shoot_cool_down_max;
+            int shoot_cool_down;
             hardrock::TileSet::IndexType tile_idx;
             hardrock::TileSet::IndexType padding;
         };
         PlayerData player_data =
         {
             { SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.9 },
+            5,
+            5,
             sprite_tile_set.TileAdd(),
         };
         player_model.SetTileWithPos(player_data.pos, &sprite_tile_set.TileAt(player_data.tile_idx));
@@ -242,13 +223,12 @@ int main(int argc, char* args[])
         
         struct PlayerBulletData
         {
-            glm::vec2 pos;
+            hardrock::LineMove line_move;
             hardrock::TileSet::IndexType tile_idx;
             hardrock::TileSet::IndexType padding;
         };
         const std::size_t player_bullet_count = 64;
-        std::array<PlayerBulletData, player_bullet_count> player_bullet_data;
-        std::size_t active_player_bullet_count = 0;
+        std::vector<PlayerBulletData> player_bullet_data;
         
         hardrock::KeyboardControl keyboard_control;
 
@@ -256,8 +236,10 @@ int main(int argc, char* args[])
         tick_t last_fps_tick = SDL_GetTicks();
         tick_t last_fps_frame = 0;
         DelayQueue<unsigned int, 6> tick_time_queue;
+        int tick_count = 0;
         while (true)
         {
+            ++tick_count;
             SDL_Event e;
             bool b_quit = false;
             while (SDL_PollEvent(&e) != 0)
@@ -283,18 +265,16 @@ int main(int argc, char* args[])
                 break;
             }
             
-            for (std::size_t i = 0; i < active_player_bullet_count;)
+            for (std::size_t i = 0; i < player_bullet_data.size();)
             {
-                auto &bullet_data = player_bullet_data[i];
+                const auto &bullet_data = player_bullet_data[i];
                 const auto bullet_idx = bullet_data.tile_idx;
-                auto &pos = bullet_data.pos;
-                pos += glm::vec2(0, -16.0f);
-                
+                const auto pos = bullet_data.line_move.GetPos(tick_count);
                 if (pos.y < 0)
                 {
                     sprite_tile_set.TileRemove(bullet_idx);
-                    player_bullet_data[i] = player_bullet_data[active_player_bullet_count - 1];
-                    --active_player_bullet_count;
+                    player_bullet_data[i] = player_bullet_data.back();
+                    player_bullet_data.pop_back();
                 }
                 else
                 {
@@ -303,37 +283,24 @@ int main(int argc, char* args[])
                 }
             }
             
-            if (keyboard_control.GetButtonMask() & 1 && active_player_bullet_count < player_bullet_count)
+            --player_data.shoot_cool_down;
+            if (player_data.shoot_cool_down <= 0 && keyboard_control.GetButtonMask() & 1 && player_bullet_data.size() < player_bullet_count)
             {
-                const auto bullet_idx = active_player_bullet_count++;
-                auto &bullet_data = player_bullet_data[bullet_idx];
-                bullet_data.tile_idx = sprite_tile_set.TileAdd(player_bullet_tile_head_idx);
+                player_data.shoot_cool_down = player_data.shoot_cool_down_max;
                 const auto bullet_pos = player_data.pos;
-                bullet_data.pos = bullet_pos;
-                bullet_1_model.SetTileWithPos(bullet_pos, &sprite_tile_set.TileAt(bullet_data.tile_idx));
+                const auto tile_idx = sprite_tile_set.TileAdd(player_bullet_tile_head_idx);
+                player_bullet_data.push_back({{{0, -8.0f}, bullet_pos, tick_count}, tile_idx});
+                bullet_1_model.SetTileWithPos(bullet_pos, &sprite_tile_set.TileAt(tile_idx));
             }
 
             player_data.pos += keyboard_control.GetMoveVector() * 2.0f;
             player_model.SetTileWithPos(player_data.pos, &sprite_tile_set.TileAt(player_data.tile_idx));
 
-            for (int i = 0; i < sprite_count; ++i)
-            {
-                SpriteData& s = sprite_data[i];
-                s.radius += 0.01f;
-                if (s.radius > pi)
-                    s.radius -= double_pi;
-                glm::vec2 norm;
-                hardrock::FastSinCos(s.radius, &norm.y, &norm.x);
-                sprite_model.SetTileWithPosScaleDir(s.pos, {1, 1}, norm, &tile_set.TileAt(s.tile_idx));
-            }
-
             glClearColor(0.2f, 0.0f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
             {
-                auto tile_seq = tile_set.GetTileSequence();
-                render_quest_list[0].p_tile_seq = &tile_seq;
                 auto sprite_tile_seq = sprite_tile_set.GetTileSequence();
-                render_quest_list[1].p_tile_seq = &sprite_tile_seq;
+                render_quest_list[0].p_tile_seq = &sprite_tile_seq;
                 up_render_device->Render(render_quest_list.begin(), render_quest_list.end());
             }
             glFlush();

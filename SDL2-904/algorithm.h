@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include "glm/vec2.hpp"
 
 namespace hardrock
 {
@@ -53,6 +54,22 @@ namespace hardrock
         std::uint8_t y;
     };
     int TexturePack(std::uint8_t width, std::uint8_t height, std::uint16_t count, const TexturePackInput* sizes, TexturePackOutput* out_positions);
+    
+    class LineMove
+    {
+        glm::vec2 move_vector;
+        glm::vec2 origin_pos;
+        int origin_time;
+    public:
+        LineMove(const glm::vec2 &move_vector, const glm::vec2 &origin_pos, int origin_time)
+        : move_vector(move_vector), origin_pos(origin_pos), origin_time(origin_time)
+        {
+        }
+        glm::vec2 GetPos(int t) const
+        {
+            return this->move_vector * static_cast<float>(t - this->origin_time) + this->origin_pos;
+        }
+    };
 }
 
 #endif /* defined(__SDL2_904__utils__) */
